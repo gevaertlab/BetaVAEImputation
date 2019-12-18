@@ -1,0 +1,13 @@
+{
+  "training_epochs": 250,
+  "batch_size":250,
+  "laerning_rate": 0.0005,
+  "latent_size": 200,
+  "hidden_size_1": 6000,
+  "hidden_size_2": 2000,
+  "beta": 1,
+  "data_path": "/local-scratch/lina_scratch/VAE/data/LGGGBM_complete.csv", 
+  "corrupt_data_path": "/local-scratch/lina_scratch/VAE/data/LGGGBM_missing_10perc_pattern1.csv",
+  "save_rootpath": "/local-scratch/lina_scratch/VAE/output/"
+  
+}
