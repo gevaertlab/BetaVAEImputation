@@ -6,8 +6,8 @@
   "hidden_size_1": 6000,
   "hidden_size_2": 2000,
   "beta": 1,
-  "data_path": "/local-scratch/lina_scratch/VAE/data/LGGGBM_complete.csv", 
-  "corrupt_data_path": "/local-scratch/lina_scratch/VAE/data/LGGGBM_missing_10perc_pattern1.csv",
-  "save_rootpath": "/local-scratch/lina_scratch/VAE/output/"
+  "data_path": "LGGGBM_complete.csv", 
+  "corrupt_data_path": "LGGGBM_missing_10perc_pattern1.csv",
+  "save_rootpath": "/output/"
   
 }
