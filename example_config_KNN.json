@@ -1,0 +1,8 @@
+{
+  "data_path": "./data_complete.csv", 
+  "corrupt_data_path": "./corrupted_data_trial_1.csv",
+  "n_neighbor": 10,
+  "trial_ind": 1  
+
+  
+}
