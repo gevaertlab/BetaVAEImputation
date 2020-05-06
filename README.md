@@ -6,7 +6,7 @@ The scripts contained in this repository can be used to carry out the analysis i
 
 #######Imputation
 
-#VAE imputation
+#VAE imputation  
 python train_beta_VAE.py --config example_config_VAE.json  
 python test_beta_VAE.py --config example_config_VAE.json  
 #KNN imputation  
