@@ -9,6 +9,7 @@ import sys
 import pickle
 from sklearn.decomposition import KernelPCA
 import argparse
+import json
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
@@ -22,45 +23,40 @@ if __name__ == '__main__':
         with open(args.config) as f:
             config = json.load(f)
     
-        training_epochs=config["traning_epochs"] #250
+        training_epochs=config["training_epochs"] #250
         batch_size=config["batch_size"] #250
         learning_rate=config["learning_rate"] #0.0005
         latent_size = config["latent_size"] #200    
-        hidden_size_1=config["latent_size_1"]
-        hidden_size_2=config["latent_size_2"]
+        hidden_size_1=config["hidden_size_1"]
+        hidden_size_2=config["hidden_size_2"]
         beta=config["beta"]   
             
-        DataPath =   config["data_path"]     
-        CorruptDataPath = config["corrupt_data_path"]
-        RestoreRoot = config["save_rootpath"]
-        rp=RestoreRoot+"_ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_cl"+corrupt_level+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt"
+        data_path =   config["data_path"]     
+        corrupt_data_path = config["corrupt_data_path"]
+        restore_root = config["save_rootpath"]
+        trial_ind = config ["trial_ind"]
+        rp=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt"
         
         print("restore path: ", rp)
         
         # LOAD DATA
-        Xdata_df = pd.read_csv(DataPath)
-        Xdata = Xdata_df.values
-        del Xdata_df
+        data= pd.read_csv(data_path).values
+        data_missing = pd.read_csv(corrupt_data_path).values
+
         
-        # Load data with missing values from a csv for analysis:
-        Xdata_df = pd.read_csv(CorruptDataPath)
-        Xdata_Missing = Xdata_df.values
-        del Xdata_df
-        
-        # Properties of data:
-        n_x = Xdata_Missing.shape[1] # dimensionality of data space
-        ObsRowInd = np.where(np.isfinite(np.sum(Xdata_Missing,axis=1)))
-        NanRowInd = np.where(np.isnan(np.sum(Xdata_Missing,axis=1)))
-        NanIndex = np.where(np.isnan(Xdata_Missing))
-        
+        n_row = data_missing.shape[1] # dimensionality of data space
+        non_missing_row_ind= np.where(np.isfinite(np.sum(data_missing,axis=1)))
+        na_ind = np.where(np.isnan(data_missing))
+        na_count= len(na_ind[0])
+       
         sc = StandardScaler()
-        Xdata_Missing_complete = np.copy(Xdata_Missing[ObsRowInd[0],:])
-        sc.fit(Xdata_Missing_complete)
-        Xdata_Missing[NanIndex] = 0
-        Xdata_Missing = sc.transform(Xdata_Missing)
-        Xdata_Missing[NanIndex] = np.nan
-        del Xdata_Missing_complete
-        Xdata = sc.transform(Xdata)
+        data_missing_complete = np.copy(data_missing[non_missing_row_ind[0],:])
+        sc.fit(data_missing_complete)
+        data_missing[na_ind] = 0
+        data_missing = sc.transform(data_missing)
+        data_missing[na_ind] = np.nan
+        del data_missing_complete
+        data = sc.transform(data)
         
         
         # VAE network size:
@@ -70,7 +66,7 @@ if __name__ == '__main__':
         Encoder_hidden2 = hidden_size_1 #6000
 
         # specify number of imputation iterations:
-        ImputeIter = 100
+        ImputeIter = 3
         
         # define dict for network structure:
         network_architecture = \
@@ -78,35 +74,22 @@ if __name__ == '__main__':
                  n_hidden_recog_2=Encoder_hidden2, # 2nd layer encoder neurons
                  n_hidden_gener_1=Decoder_hidden1, # 1st layer decoder neurons
                  n_hidden_gener_2=Decoder_hidden2, # 2nd layer decoder neurons
-                 n_input=n_x, # data input size
+                 n_input=n_row, # data input size
                  n_z=latent_size)  # dimensionality of latent space
         
         # initialise VAE:
-        vae = TFVariationalAutoencoder(network_architecture,
+        vae = VariationalAutoencoder(network_architecture,
                                      learning_rate=learning_rate, 
                                      batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
         
-        X_impute = vae.impute(X_corrupt = Xdata_Missing, max_iter = ImputeIter)
+        data_impute = vae.impute(data_corrupt = data_missing, max_iter = ImputeIter)
         
-        Xdata = sc.inverse_transform(Xdata)
-        X_impute = sc.inverse_transform(X_impute)
-        ReconstructionError = sum(((X_impute[NanIndex] - Xdata[NanIndex])**2)**0.5)/NanCount
+        data = sc.inverse_transform(data)
+        data_impute = sc.inverse_transform(data_impute)
+        ReconstructionError = sum(((data_impute[na_ind] - data[na_ind])**2)**0.5)/na_count
         print('Reconstruction error (VAE):')
         print(ReconstructionError)
+        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",")  
         
-        Xdata_df = pd.read_csv(CorruptDataPath)
-        Xdata_Missing = Xdata_df.values
-        del Xdata_df
-        error_list=[]
-        Xdata_Missing_subset= np.copy(Xdata_Missing[NanRowInd[0],:])
-        X_impute_subset=np.copy(X_impute[NanRowInd[0],:])
-        Xdata_subset= np.copy(Xdata[NanRowInd[0],:])
-        for i in range(Xdata_Missing_subset.shape[0]):
-            cur_missing_ind=np.where(np.isnan(Xdata_Missing_subset[i,:]))[0]
-            cur_NanCount=len(cur_missing_ind)
-            cur_err=sum(((X_impute_subset[i, cur_missing_ind] - Xdata_subset[i, cur_missing_ind])**2)**0.5)/cur_NanCount
-            error_list.append(cur_err)
-        feature=vae.transform_feature(X = X_impute)
-            
- 
+    
         
