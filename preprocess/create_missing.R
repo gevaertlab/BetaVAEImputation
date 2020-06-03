@@ -9,6 +9,9 @@ data_raw=fread("pancan_survdata.csv",header=T)
 data_raw<-data_raw[-which(data_raw$time<=0),]
 dfSummary <- ddply(data_raw, "admin.disease_code", summarise, count=length(times))
 
+data<- data_raw[which(data_raw$admin.disease_code=="lgg"|data_raw$admin.disease_code=="gbm"),]
+fwrite(data, "data_complete.csv")
+
 ##################################
 # all values of 5% genes missing
 ##################################
