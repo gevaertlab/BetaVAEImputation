@@ -9,7 +9,10 @@ data_raw=fread("pancan_survdata.csv",header=T)
 data_raw<-data_raw[-which(data_raw$time<=0),]
 dfSummary <- ddply(data_raw, "admin.disease_code", summarise, count=length(times))
 
+##################################
 # all values of 5% genes missing
+##################################
+
 data<- data_raw[which(data_raw$admin.disease_code=="lgg"|data_raw$admin.disease_code=="gbm"),]
 missing_row_perc=0.2
 missing_gene_perc=0.05
@@ -45,7 +48,10 @@ for (SEED in c(1:10)){
   fwrite(feature_corrupted, "LGGGBM_missing_allvalue5percgene_trial",SEED,".csv")
 }
 
+##################################
 # half of lowest 10% genes missing
+##################################
+
 data<- data_raw[which(data_raw$admin.disease_code=="lgg"|data_raw$admin.disease_code=="gbm"),]
 lowest_percent = 0.1
 percent_of_lowest_missing=0.5
@@ -77,9 +83,10 @@ for (SEED in c(1:10)){
   
   fwrite(feature_corrupted, "LGGGBM_missing_halflowest5perc_trial",SEED,".csv")
 }
+##################################
+# half of 10% highest GC values missing
+##################################
 
-#Half of the highest GC content genes missing
-# 20% rows half of 10% highest GC values missing
 data<- data_raw[which(data_raw$admin.disease_code=="lgg"|data_raw$admin.disease_code=="gbm"),]
 highest_percent=0.9
 percent_of_highest_missing=0.5
@@ -121,8 +128,11 @@ for (SEED in c(1:10)){
   fwrite(feature_corrupted,"LGGGBM_missing_halfgchighest10perc_trial",SEED,".csv")
 }
 
+##################################
 #Random missing
-# 20% rows 10% random missing
+#10% random missing
+##################################
+
 data<- data_raw[which(data_raw$admin.disease_code=="lgg"|data_raw$admin.disease_code=="gbm"),]
 nonmissing_percent=0.9
 missing_row_perc=0.2
