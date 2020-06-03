@@ -8,7 +8,7 @@
   "beta": 1,
   "trial_ind": 1,
   "data_path": "./data_complete.csv", 
-  "corrupt_data_path": "./corrupted_data_trial_1.csv",
+  "corrupt_data_path": "./LGGGBM_missing_10perc_trial_1.csv",
   "save_rootpath": "./output/"
   
 }
