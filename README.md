@@ -6,22 +6,22 @@ The scripts contained in this repository can be used to carry out the analysis i
 
 Examples of preprocessing the raw data and creating missing value simulations can be found in ./preprocess/
 
-#######Imputation
+**Imputation
 
-#VAE imputation  
+1. VAE imputation  
 python train_beta_VAE.py --config example_config_VAE.json  
 python test_beta_VAE.py --config example_config_VAE.json  
-#KNN imputation  
+2. KNN imputation  
 python test_KNN.py --config example_config_KNN.json  
-#SVD imputation  
+3. SVD imputation  
 python test_SVD.py --config example_config_SVD.json
 
-#######Compare clinical correlations
+**Compare clinical correlations
 
-#Spearman correlation to histologic grade  
+1. Spearman correlation to histologic grade  
 python cindex_spearman_cor.py
 
-#Cox regression coefficient to survival  
+2. Cox regression coefficient to survival  
 Rscript find_cox_coeff.R  
 python cindex_cox_coeff.py
 
