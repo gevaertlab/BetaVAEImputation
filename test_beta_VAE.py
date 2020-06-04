@@ -53,6 +53,7 @@ if __name__ == '__main__':
         data_missing_complete = np.copy(data_missing[non_missing_row_ind[0],:])
         sc.fit(data_missing_complete)
         data_missing[na_ind] = 0
+        #Scale the testing data with model's trianing data mean and variance
         data_missing = sc.transform(data_missing)
         data_missing[na_ind] = np.nan
         del data_missing_complete
