@@ -1,7 +1,11 @@
 import random
+
 import numpy as np
 import tensorflow as tf
-Normal = tf.contrib.distributions.Normal
+import tensorflow_probability as tfp
+
+
+Normal = tfp.distributions.Normal
 np.random.seed(0)
 tf.set_random_seed(0)
 
@@ -18,21 +22,21 @@ class VariationalAutoencoder(object):
         self.batch_size = batch_size
         self.beta=beta
         
-        self.x = tf.placeholder(tf.float32, [None, network_architecture["n_input"]])
+        self.x = tf.compat.v1.placeholder(tf.float32, [None, network_architecture["n_input"]])
         
         self._create_network()
         
         self._create_loss_optimizer()
         
-        self.saver = tf.train.Saver()
+        self.saver = tf.compat.v1.train.Saver()
 
         init = tf.global_variables_initializer()
         
         if istrain:
-            self.sess = tf.InteractiveSession()
+            self.sess = tf.compat.v1.InteractiveSession()
             self.sess.run(init)
         else:
-            self.sess=tf.Session()            
+            self.sess=tf.compat.v1.Session()            
             self.saver.restore(self.sess, restore_path)
     
     def _create_network(self):
@@ -121,7 +125,7 @@ class VariationalAutoencoder(object):
         self.latent_cost=self.beta *latent_loss
         
         self.optimizer = \
-            tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
+            tf.compat.v1.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
                 
     def fit(self, data):
 
@@ -203,6 +207,10 @@ class VariationalAutoencoder(object):
                 #print (lc)
         self.losshistory = losshistory
         self.losshistory_epoch = losshistory_epoch
+        
+        log_dir = "./logs/train/"
+        summary_writer = tf.compat.v1.summary.FileWriter(log_dir, graph=self.sess.graph_def)
+
         return self
 
 def next_batch(data,batch_size):

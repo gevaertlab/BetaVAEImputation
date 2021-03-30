@@ -30,7 +30,7 @@ if __name__ == '__main__':
         save_root = config["save_rootpath"]
         
 
-        data = pd.read_csv(data_path).values
+        data = pd.read_csv(data_path,index_col=[0,1,2,3]).values
         data_missing = pd.read_csv(corrupt_data_path).values
 
         n_row = data_missing.shape[1] # dimensionality of data space
@@ -63,6 +63,9 @@ if __name__ == '__main__':
                  n_input=n_row, # data input size
                  n_z=latent_size)  # dimensionality of latent space
         
+        # https://stackoverflow.com/questions/56561734/runtimeerror-tf-placeholder-is-not-compatible-with-eager-execution
+        tf.compat.v1.disable_eager_execution()
+        
         # initialise VAE:
         vae = VariationalAutoencoder(network_architecture,
                                      learning_rate=learning_rate, 
@@ -73,7 +76,7 @@ if __name__ == '__main__':
         vae = vae.train(data=data_missing,
                         training_epochs=training_epochs)
                 
-        saver = tf.train.Saver()
+        saver = tf.compat.v1.train.Saver()
         save_path = saver.save(vae.sess, save_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt")
         
         

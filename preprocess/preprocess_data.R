@@ -40,6 +40,7 @@ ind <- which(is.na(colSums(rna_reshaped)))
 rna_reshaped_rmna<- rna_reshaped[,-ind]
 rna_log <- apply(rna_reshaped_rmna+1,2,log)
 data<- normalize_data(rna_log,opts = list(col_center=TRUE, col_normalize=TRUE))
+data<- as.data.frame(data)
 # write.csv(data, "rna_naremoved_logtransformed_normalized.csv")
 
 
@@ -47,7 +48,7 @@ ps<-function(li){
   b=do.call(paste,as.list(c(li[1:3],sep='-')))
   return(b)
 }
-samplenames=unlist(data[,1])
+samplenames=unlist(rownames(data))
 a=strsplit(samplenames,"\\.")
 barcode=sapply(a, ps)
 data$bcr_patient_barcode=barcode
@@ -62,5 +63,5 @@ clin <- survivalTCGA(ACC.clinical,BLCA.clinical,BRCA.clinical,CESC.clinical,CHOL
                      UCS.clinical,UVM.clinical,extract.cols="admin.disease_code")
 survdata=merge(data,clin,by='bcr_patient_barcode')
 survdata=survdata[!duplicated(survdata[,1]),]
-survdata=survdata[,c(1:2,17179:17181,3:17178)]
+survdata=survdata[,c(1,17178:17180,2:17177)]
 fwrite(survdata, "pancan_survdata.csv")
