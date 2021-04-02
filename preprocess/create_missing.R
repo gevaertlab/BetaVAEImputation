@@ -20,8 +20,8 @@ data<- data_raw[which(data_raw$admin.disease_code=="lgg"|data_raw$admin.disease_
 missing_row_perc=0.2
 missing_gene_perc=0.05
 
-clin=data[,1:5]
-feature=data[,6:17181]
+clin=data[,1:4]
+feature=data[,5:17180]
 sample_n=dim(feature)[1]
 feature_size=dim(feature)[2]
 feature_gene<-colnames(feature)
@@ -60,8 +60,8 @@ lowest_percent = 0.1
 percent_of_lowest_missing=0.5
 missing_row_perc=0.2
 
-clin=data[,1:5]
-feature=data[,6:17181]
+clin=data[,1:4]
+feature=data[,5:17180]
 sample_n=dim(feature)[1]
 feature_size=dim(feature)[2]
 THRES=quantile(as.matrix(feature), probs = lowest_percent, names=FALSE)
@@ -95,8 +95,8 @@ highest_percent=0.9
 percent_of_highest_missing=0.5
 missing_row_perc=0.2
 
-clin=data[,1:5]
-feature=data[,6:17181]
+clin=data[,1:4]
+feature=data[,5:17180]
 sample_n=dim(feature)[1]
 feature_size=dim(feature)[2]
 gc<- read.csv("data/Average_GC.csv")
@@ -140,8 +140,8 @@ data<- data_raw[which(data_raw$admin.disease_code=="lgg"|data_raw$admin.disease_
 nonmissing_percent=0.9
 missing_row_perc=0.2
 
-clin=data[,1:5]
-feature=data[,6:17181]
+clin=data[,1:4]
+feature=data[,5:17180]
 sample_n=dim(feature)[1]
 feature_size=dim(feature)[2]
 

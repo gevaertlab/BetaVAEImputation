@@ -13,7 +13,7 @@ import json
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
-tf.reset_default_graph()
+tf.compat.v1.reset_default_graph()
 
 
 if __name__ == '__main__':
@@ -40,7 +40,7 @@ if __name__ == '__main__':
         print("restore path: ", rp)
         
         # LOAD DATA
-        data= pd.read_csv(data_path).values
+        data= pd.read_csv(data_path, index_col=[0,1,2,3]).values
         data_missing = pd.read_csv(corrupt_data_path).values
 
         
@@ -78,6 +78,9 @@ if __name__ == '__main__':
                  n_input=n_row, # data input size
                  n_z=latent_size)  # dimensionality of latent space
         
+        # https://stackoverflow.com/questions/56561734/runtimeerror-tf-placeholder-is-not-compatible-with-eager-execution
+        tf.compat.v1.disable_eager_execution()
+
         # initialise VAE:
         vae = VariationalAutoencoder(network_architecture,
                                      learning_rate=learning_rate, 
