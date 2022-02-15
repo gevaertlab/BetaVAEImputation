@@ -34,23 +34,36 @@ normalize_data <- function(X, opts = list()) {
 #Version 2 of the adjusted pan-cancer gene expression data obtained from Synapse: 
 #https://www.synapse.org/#!Synapse:syn4976369.2. 
 
-rna<- read.csv("EB++AdjustPANCAN_IlluminaHiSeq_RNASeqV2-v2.geneExp.tsv",sep="\t")
+setwd("/Users/breesheyroskams-hieter/Desktop/Uni_Edinburgh/VAEs_MDI_rotation/Qiu_et_al/analysis")
+rna<- read.csv("../input_data/EB++AdjustPANCAN_IlluminaHiSeq_RNASeqV2-v2.geneExp.tsv",sep="\t")
 rna_reshaped<- reshape(rna)
 ind <- which(is.na(colSums(rna_reshaped)))
 rna_reshaped_rmna<- rna_reshaped[,-ind]
 rna_log <- apply(rna_reshaped_rmna+1,2,log)
 data<- normalize_data(rna_log,opts = list(col_center=TRUE, col_normalize=TRUE))
-# write.csv(data, "rna_naremoved_logtransformed_normalized.csv")
 
+# Export cleaned complete data with al NAs removed
+if (!file.exists("rna_naremoved_logtransformed_normalized.csv")) {
+  write.csv(data, "rna_naremoved_logtransformed_normalized.csv")
+}
 
+# Looks like here they are splitting by . and then taking the first three elements as the patient barcode and connecting with -
 ps<-function(li){
   b=do.call(paste,as.list(c(li[1:3],sep='-')))
   return(b)
 }
-samplenames=unlist(data[,1])
+samplenames=rownames(data) # Updated this line as previously it did not return a character vector
 a=strsplit(samplenames,"\\.")
 barcode=sapply(a, ps)
-data$bcr_patient_barcode=barcode
+
+# data variable currently has 11,069 rows (samples) and 17,176 columns (genes)
+# data needs to be a dataframe or data table, cannot add column with $ to a matrix
+data_df <- as.data.frame(data)
+# Check
+stopifnot(length(barcode) == nrow(data_df))
+data_df$bcr_patient_barcode=barcode
+
+# Extract TCGA Survival information
 clin <- survivalTCGA(ACC.clinical,BLCA.clinical,BRCA.clinical,CESC.clinical,CHOL.clinical,
                      COAD.clinical,COADREAD.clinical,DLBC.clinical,ESCA.clinical,
                      FPPP.clinical,GBM.clinical,GBMLGG.clinical,HNSC.clinical,
@@ -60,7 +73,8 @@ clin <- survivalTCGA(ACC.clinical,BLCA.clinical,BRCA.clinical,CESC.clinical,CHOL
                      PRAD.clinical,READ.clinical,SARC.clinical,SKCM.clinical,STAD.clinical,
                      STES.clinical,TGCT.clinical,THCA.clinical,THYM.clinical,UCEC.clinical,
                      UCS.clinical,UVM.clinical,extract.cols="admin.disease_code")
-survdata=merge(data,clin,by='bcr_patient_barcode')
+# Merge clinical information with gene expression information by barcode
+survdata=merge(data_df,clin, by='bcr_patient_barcode')
 survdata=survdata[!duplicated(survdata[,1]),]
 survdata=survdata[,c(1:2,17179:17181,3:17178)]
 fwrite(survdata, "pancan_survdata.csv")
