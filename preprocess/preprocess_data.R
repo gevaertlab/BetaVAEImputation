@@ -42,12 +42,7 @@ rna_reshaped_rmna<- rna_reshaped[,-ind]
 rna_log <- apply(rna_reshaped_rmna+1,2,log)
 data<- normalize_data(rna_log,opts = list(col_center=TRUE, col_normalize=TRUE))
 
-## Remove numbers associated with gene symbols in the column names
-ids <- colnames(data)
-clean_ids <- unlist(strsplit(ids, "[|]"))[seq(1, length(unlist(strsplit(ids, "[|]"))), 2)]
-colnames(data) <- clean_ids
-
-# Export cleaned complete data with al NAs removed
+# Export cleaned complete data with all NAs removed
 if (!file.exists("rna_naremoved_logtransformed_normalized.csv")) {
   write.csv(data, "rna_naremoved_logtransformed_normalized.csv")
 }
