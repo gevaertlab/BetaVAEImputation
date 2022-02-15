@@ -76,5 +76,5 @@ clin <- survivalTCGA(ACC.clinical,BLCA.clinical,BRCA.clinical,CESC.clinical,CHOL
 # Merge clinical information with gene expression information by barcode
 survdata=merge(data_df,clin, by='bcr_patient_barcode')
 survdata=survdata[!duplicated(survdata[,1]),]
-survdata=survdata[,c(1:2,17179:17181,3:17178)]
+survdata=survdata[,c(1,17178:17180,3:17177)]
 fwrite(survdata, "pancan_survdata.csv")
