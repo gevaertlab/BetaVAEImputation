@@ -7,8 +7,8 @@
   "hidden_size_2": 2000,
   "beta": 1,
   "trial_ind": 1,
-  "data_path": "./data_complete.csv", 
-  "corrupt_data_path": "./LGGGBM_missing_10perc_trial_1.csv",
+  "data_path": "./data/data_complete.csv", 
+  "corrupt_data_path": "./data/LGGGBM_missing_10perc_trial1.csv",
   "save_rootpath": "./output/"
   
 }
