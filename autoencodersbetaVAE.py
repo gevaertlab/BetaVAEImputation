@@ -94,6 +94,7 @@ class VariationalAutoencoder(object):
     
     def _generator_network(self, weights, biases):
 
+        # self.z
         layer_1 = self.transfer_fct(tf.add(tf.matmul(self.z, weights['h1']), 
                                            biases['b1'])) 
         layer_2 = self.transfer_fct(tf.add(tf.matmul(layer_1, weights['h2']), 
@@ -107,13 +108,16 @@ class VariationalAutoencoder(object):
         return (x_hat_mean, x_hat_log_sigma_sq)
             
     def _create_loss_optimizer(self):
-        
+
+        # 1. Reconstruction loss - the negative log probability of of the input under the reconstructed Bernoulli distribution
+        # induced by the decoder in the latent space 
         X_hat_distribution = Normal(loc=self.x_hat_mean,
                                     scale=tf.exp(self.x_hat_log_sigma_sq))
         reconstr_loss = \
             -tf.reduce_sum(X_hat_distribution.log_prob(self.x), 1)
           
-
+        # 2. Latent loss - KL divergence between between the latent space distribution induced by the encoder on the data
+        # And some prior
         latent_loss = -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
                                            - tf.square(self.z_mean) 
                                            - tf.exp(self.z_log_sigma_sq), 1)
@@ -152,6 +156,8 @@ class VariationalAutoencoder(object):
                         tf.multiply(tf.sqrt(tf.exp(x_hat_logsigsq)), eps))
             x_hat = x_hat.eval()
         else:
+            ## Here is where we are extracting the mean from the reconstructed data
+            # Need to update this, wherever it's calling the mean from, we need to pull a sample from the distribution of z
             x_hat_mu = self.sess.run(self.x_hat_mean, 
                              feed_dict={self.x: data})
             x_hat = x_hat_mu
@@ -162,13 +168,15 @@ class VariationalAutoencoder(object):
         """ Use VAE to impute missing values in data_corrupt. Missing values
             are indicated by a NaN.
         """
-
+        # Find all missing row indices (samples/patients with any missing values)
         missing_row_ind = np.where(np.isnan(np.sum(data_corrupt,axis=1)))
         data_miss_val = data_corrupt[missing_row_ind[0],:]
         
-        na_ind= np.where(np.isnan(data_miss_val))
+        # Set all missing values at each location to zero before imputation begins
+        na_ind = np.where(np.isnan(data_miss_val))
         data_miss_val[na_ind] = 0
-        
+        tmp = data_miss_val  
+        # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
         
             data_reconstruct = self.reconstruct(data_miss_val)
@@ -178,6 +186,80 @@ class VariationalAutoencoder(object):
         data_imputed = data_corrupt
 
         return data_imputed
+
+
+    def impute_multiple(self, data_corrupt, max_iter = 10):
+        """
+        Return a random sample from the decoder given a random sample from the latent distribution conditioned on data_corrupt
+        """
+        # Find all missing row indices (samples/patients with any missing values)
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt,axis=1)))
+        data_miss_val = data_corrupt[missing_row_ind[0],:]
+
+        # Set all missing values at each location to zero before imputation begins
+        na_ind = np.where(np.isnan(data_miss_val))
+        data_miss_val[na_ind] = 0
+
+        # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
+        for i in range(max_iter):
+            ## Here - need a function which passes z_sample into the decoder and obtains the distribution of x_hat
+            # Once x_hat distribution is generated, we need a random sample from this distribution
+            # Then take all values at na_ind and replace them in the original data_miss_val with the sampled values from x_hat
+            
+            # calling x_hat_mean and x_hat_log_sigma_sq actually pulls a random sample from z via re-parametrization trick and then feeds it through the decoder 
+            # And then computes the distribution and pulls a sample from this
+            # Obtain a random sample from z, x_hat_mean and x_hat_log_sigma_sq given our corrupt data
+            z_sample, x_hat_mean, x_hat_log_sigma_sq = self.sess.run([self.z, self.x_hat_mean, self.x_hat_log_sigma_sq],
+                             feed_dict={self.x: data_miss_val}) 
+
+            X_hat_distribution = Normal(loc=x_hat_mean,
+                                    scale=tf.sqrt(tf.exp(x_hat_log_sigma_sq)))
+
+            x_hat_sample = self.sess.run(X_hat_distribution.sample())
+            
+            data_miss_val[na_ind] = x_hat_sample[na_ind] 
+
+        # after the iterations have run through, you will have 1 of m plausible MI datasets
+        data_corrupt[missing_row_ind,:] = data_miss_val
+        data_imputed = data_corrupt
+
+        return data_imputed
+
+    def test_sampling(self, data_corrupt, max_iter = 10):
+        """
+        Return a random sample from the decoder given a random sample from the latent distribution conditioned on data_corrupt
+        Test what this is actually returning, make sure the shape is correct (should be 667 x 17175)
+        """
+        # Find all missing row indices (samples/patients with any missing values)
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt,axis=1)))
+        data_miss_val = data_corrupt[missing_row_ind[0],:]
+
+        # Set all missing values at each location to zero before imputation begins
+        na_ind = np.where(np.isnan(data_miss_val))
+        data_miss_val[na_ind] = 0
+
+        # Run through one iteration
+        # Obtain a random sample from z, x_hat_mean and x_hat_log_sigma_sq given our corrupt data
+        z_sample, x_hat_mean, x_hat_log_sigma_sq = self.sess.run([self.z, self.x_hat_mean, self.x_hat_log_sigma_sq],
+                             feed_dict={self.x: data_miss_val}) 
+
+        X_hat_distribution = Normal(loc=x_hat_mean,
+                                    scale=tf.sqrt(tf.exp(x_hat_log_sigma_sq)))
+
+        # X_hat_distribution is the tensor associated with this order of operations, so we need to run it to get the values
+        x_hat_sample = self.sess.run(X_hat_distribution.sample())
+        
+        return x_hat_sample
+
+
+    def get_z_distribution(self, data):
+        """
+        Return latent distribution so we can run inspect it
+        """
+        z_space_comp = self.sess.run(self.z, 
+                             feed_dict={self.x: data})
+        return z_space_comp
+
     
     def train(self, data, training_epochs=10, display_step=10):
 
