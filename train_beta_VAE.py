@@ -1,3 +1,5 @@
+import os
+os.chdir("git_repository/BetaVAEImputation")
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -14,9 +16,13 @@ parser.add_argument('--config', type=str, default='config.json', help='configura
 
 if __name__ == '__main__':
     
-        args = parser.parse_args()
-        with open(args.config) as f:
+        #args = parser.parse_args()
+        #with open(args.config) as f:
+        #    config = json.load(f)
+
+        with open("example_config_VAE.json") as f:
             config = json.load(f)
+
     
         training_epochs=config["training_epochs"] #250
         batch_size=config["batch_size"] #250
@@ -29,24 +35,34 @@ if __name__ == '__main__':
         corrupt_data_path = config["corrupt_data_path"]
         save_root = config["save_rootpath"]
         
-
+        # Read in complete data
         data = pd.read_csv(data_path).values
+        # Read in simulated missing dataset
         data_missing = pd.read_csv(corrupt_data_path).values
 
+        # How many genes do we have? ie. what is the dimensiontality of Yobs?
         n_row = data_missing.shape[1] # dimensionality of data space
+        # Store the index of each sample that is complete
         non_missing_row_ind= np.where(np.isfinite(np.sum(data_missing,axis=1)))
+        # Store the rows and columns of every missing data point in your "data_missing" numpy array
         na_ind = np.where(np.isnan(data_missing))
 
         sc = StandardScaler()
+        # Create a new numpy array that is complete (subset of simulated data_missing)
         data_missing_complete = np.copy(data_missing[non_missing_row_ind[0],:])
+        # Find scaling factors from the complete set of the simulated missing data
         sc.fit(data_missing_complete)
-        data_missing[na_ind] = 0
+        data_missing[na_ind] = 0 # Assign zero values to missing value indicies
+        # Transform missing data by the scaling factors defined from all complete values
         data_missing = sc.transform(data_missing)
+        # Re-assign the missing values to the same positions as before
         data_missing[na_ind] = np.nan
         del data_missing_complete
+
+        # Remove strings and metadata from first few columns in data
+        data = np.delete(data,np.s_[0:4], axis=1)
         data = sc.transform(data)
 
-       
         # VAE network size:
         Decoder_hidden1 = hidden_size_1 #6000
         Decoder_hidden2 = hidden_size_2 #2000
@@ -72,7 +88,17 @@ if __name__ == '__main__':
         # train VAE on corrupted data:
         vae = vae.train(data=data_missing,
                         training_epochs=training_epochs)
-                
+
+        # What does x_hat_distribution look like?
+        tmp = vae.test_sampling(data_corrupt = data_missing)
+        # Looks like this is a Tensor, not a dataframe
+
+        # Test updates to VAE object class
+        # specify number of imputation iterations:
+        ImputeIter = 3
+
+        data_imputed_sample = vae.impute_multiple(data_corrupt = data_missing, max_iter = ImputeIter)
+        
         saver = tf.train.Saver()
         save_path = saver.save(vae.sess, save_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt")
         
