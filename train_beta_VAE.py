@@ -1,5 +1,5 @@
 import os
-os.chdir("git_repository/BetaVAEImputation")
+# os.chdir("git_repository/BetaVAEImputation")
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt

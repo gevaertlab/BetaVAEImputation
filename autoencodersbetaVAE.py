@@ -2,8 +2,9 @@ import random
 import numpy as np
 import tensorflow as tf
 Normal = tf.contrib.distributions.Normal
+#Normal = tf.compat.v1.distributions.Normal
 np.random.seed(0)
-tf.set_random_seed(0)
+tf.random.set_seed(0)
 
 class VariationalAutoencoder(object):
 #"VAE implementation is based on the implementation from  McCoy, J.T.,et al."
