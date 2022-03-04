@@ -1,11 +1,12 @@
 import random
 import numpy as np
 import tensorflow as tf
-Normal = tf.contrib.distributions.Normal
-#Normal = tf.compat.v1.distributions.Normal
+# Normal = tf.contrib.distributions.Normal
+Normal = tf.compat.v1.distributions.Normal
 np.random.seed(0)
 tf.random.set_seed(0)
 
+tf.compat.v1.disable_eager_execution()
 class VariationalAutoencoder(object):
 #"VAE implementation is based on the implementation from  McCoy, J.T.,et al."
 #https://www-sciencedirect-com.stanford.idm.oclc.org/science/article/pii/S2405896318320949"
@@ -19,21 +20,21 @@ class VariationalAutoencoder(object):
         self.batch_size = batch_size
         self.beta=beta
         
-        self.x = tf.placeholder(tf.float32, [None, network_architecture["n_input"]])
+        self.x = tf.compat.v1.placeholder(tf.float32, [None, network_architecture["n_input"]])
         
         self._create_network()
         
         self._create_loss_optimizer()
         
-        self.saver = tf.train.Saver()
+        self.saver = tf.compat.v1.train.Saver()
 
-        init = tf.global_variables_initializer()
+        init = tf.compat.v1.global_variables_initializer()
         
         if istrain:
-            self.sess = tf.InteractiveSession()
+            self.sess = tf.compat.v1.InteractiveSession()
             self.sess.run(init)
         else:
-            self.sess=tf.Session()            
+            self.sess=tf.compat.v1.Session()
             self.saver.restore(self.sess, restore_path)
     
     def _create_network(self):
@@ -44,11 +45,11 @@ class VariationalAutoencoder(object):
             self._recognition_network(network_weights["weights_recog"], 
                                       network_weights["biases_recog"])
 
-        eps = tf.random_normal(tf.shape(self.z_mean), 0, 1, 
+        eps = tf.random.normal(tf.shape(self.z_mean), 0, 1,
                                dtype=tf.float32)
 
         self.z = tf.add(self.z_mean, 
-                        tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps))
+                        tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps)) # reparameterization trick happens here
 
         self.x_hat_mean, self.x_hat_log_sigma_sq = \
             self._generator_network(network_weights["weights_gener"],
@@ -91,6 +92,7 @@ class VariationalAutoencoder(object):
         z_log_sigma_sq = \
             tf.add(tf.matmul(layer_2, weights['out_log_sigma']), 
                    biases['out_log_sigma'])
+
         return (z_mean, z_log_sigma_sq)
     
     def _generator_network(self, weights, biases):
@@ -119,21 +121,49 @@ class VariationalAutoencoder(object):
           
         # 2. Latent loss - KL divergence between between the latent space distribution induced by the encoder on the data
         # And some prior
-        latent_loss = -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
-                                           - tf.square(self.z_mean) 
-                                           - tf.exp(self.z_log_sigma_sq), 1)
+        latent_loss = -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq # pushes sigma to infinity
+                                           - tf.square(self.z_mean) # pushes x_mean to zero
+                                           - tf.exp(self.z_log_sigma_sq), 1) # pushes sigma to zero
+        self.reconstr_loss = reconstr_loss
+        self.latent_loss = latent_loss
         self.cost = tf.reduce_mean(reconstr_loss + self.beta *latent_loss)   # average over batch
         self.latent_cost=self.beta *latent_loss
         
         self.optimizer = \
-            tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
+            tf.compat.v1.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
                 
     def fit(self, data):
 
         opt, cost = self.sess.run((self.optimizer, self.cost), 
                                   feed_dict={self.x: data})
         return cost
-    
+
+    def inspect_components(self, data):
+        components = {
+            'latent_cost': self.sess.run(self.latent_cost,
+                                      feed_dict={self.x: data}),
+            'cost': self.sess.run(self.cost,
+                                      feed_dict={self.x: data}),
+            'latent_loss': self.sess.run(self.latent_loss,
+                                      feed_dict={self.x: data}),
+            'reconstr_loss': self.sess.run(self.reconstr_loss,
+                                      feed_dict={self.x: data}),
+            'x': self.sess.run(self.x,
+                                      feed_dict={self.x: data}),
+            'x_hat_mean': self.sess.run(self.x_hat_mean,
+                                      feed_dict={self.x: data}),
+            'x_hat_log_sig_sq': self.sess.run(self.x_hat_log_sigma_sq,
+                                      feed_dict={self.x: data}),
+            'z_log_sigma_sq': self.sess.run(self.z_log_sigma_sq,
+                                      feed_dict={self.x: data}),
+            'z': self.sess.run(self.z,
+                                      feed_dict={self.x: data}),
+            'z_mean': self.sess.run(self.z_mean,
+                                      feed_dict={self.x: data}),
+
+        }
+        return components
+
     def inspect_latent_cost (self, data):
 
         lc = self.sess.run(self.latent_cost, 
@@ -150,7 +180,7 @@ class VariationalAutoencoder(object):
             x_hat_mu, x_hat_logsigsq = self.sess.run((self.x_hat_mean, self.x_hat_log_sigma_sq), 
                              feed_dict={self.x: data})
         
-            eps = tf.random_normal(tf.shape(data), 1, 
+            eps = tf.random.normal(tf.shape(data), 1,
                                dtype=tf.float32)
 
             x_hat = tf.add(x_hat_mu, 
@@ -179,7 +209,7 @@ class VariationalAutoencoder(object):
         tmp = data_miss_val  
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
-        
+            previous_missing = np.copy(data_miss_val)
             data_reconstruct = self.reconstruct(data_miss_val)
             data_miss_val[na_ind] = data_reconstruct[na_ind]
         
@@ -277,6 +307,7 @@ class VariationalAutoencoder(object):
                 batch_xs = next_batch(data,self.batch_size)
                 cost = self.fit(batch_xs)
                 lc = self.inspect_latent_cost(batch_xs)
+                components = self.inspect_components(batch_xs) # used for debugging and understanding
                 avg_cost += cost / n_samples * self.batch_size
                
             if epoch % display_step == 0:
@@ -301,6 +332,6 @@ def xavier_init(fan_in, fan_out, constant=1):
     # https://stackoverflow.com/questions/33640581/how-to-do-xavier-initialization-on-tensorflow
     low = -constant*np.sqrt(6.0/(fan_in + fan_out)) 
     high = constant*np.sqrt(6.0/(fan_in + fan_out))
-    return tf.random_uniform((fan_in, fan_out), 
+    return tf.random.uniform((fan_in, fan_out),
                              minval=low, maxval=high, 
                              dtype=tf.float32)

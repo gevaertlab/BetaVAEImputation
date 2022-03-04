@@ -1,5 +1,5 @@
 import os
-os.chdir("git_repository/BetaVAEImputation")
+# os.chdir("git_repository/BetaVAEImputation")
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -15,7 +15,8 @@ import json
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
-tf.reset_default_graph()
+tf.compat.v1.disable_eager_execution()
+tf.compat.v1.reset_default_graph()
 
 
 if __name__ == '__main__':
@@ -99,10 +100,10 @@ if __name__ == '__main__':
         z_log_sigma_sq = vae.z_log_sigma_sq
 
         #initialize the variable
-        init = tf.global_variables_initializer()
+        init = tf.compat.v1.global_variables_initializer()
 
         #run the graph
-        with tf.InteractiveSession() as sess:
+        with tf.compat.v1.InteractiveSession() as sess:
             sess.run(init) #execute init
             #print the random values that we sample
             print(sess.run(z_space, 

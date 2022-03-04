@@ -97,9 +97,9 @@ if __name__ == '__main__':
         # specify number of imputation iterations:
         ImputeIter = 3
 
-        data_imputed_sample = vae.impute_multiple(data_corrupt = data_missing, max_iter = ImputeIter)
+        data_imputed_sample = vae.impute(data_corrupt = data_missing, max_iter = ImputeIter)
         
-        saver = tf.train.Saver()
+        saver = tf.compat.v1.train.Saver()
         save_path = saver.save(vae.sess, save_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt")
         
         
