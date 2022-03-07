@@ -104,7 +104,7 @@ class NetworkBuilder():
         return decoder
 
 class VAE(keras.Model):
-    def __init__(self, encoder, decoder, proba_output=True, **kwargs):
+    def __init__(self, encoder, decoder, proba_output=True, beta=1, **kwargs):
         super(VAE, self).__init__(**kwargs)
         self.encoder = encoder
         self.decoder = decoder
@@ -114,6 +114,7 @@ class VAE(keras.Model):
         )
         self.kl_loss_tracker = keras.metrics.Mean(name="kl_loss")
         self.proba_output = proba_output
+        self.beta = beta
 
     @property
     def metrics(self):
@@ -142,9 +143,9 @@ class VAE(keras.Model):
                     )
                 )
 
-            kl_loss = -0.5 * (1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
+            kl_loss = -0.5 * (1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)) # identical form to the other implementation
             kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=1))
-            total_loss = reconstruction_loss + kl_loss
+            total_loss = reconstruction_loss + self.beta * kl_loss
         grads = tape.gradient(total_loss, self.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
         self.total_loss_tracker.update_state(total_loss)
@@ -211,7 +212,7 @@ network_builder  = NetworkBuilder(latent_dim=2, input_shape=n_row,
                                   network_architecture=network_architecture, proba_output=proba_output)
 encoder = network_builder.create_encoder()
 decoder = network_builder.create_decoder()
-vae = VAE(encoder, decoder, proba_output=proba_output)
+vae = VAE(encoder, decoder, proba_output=proba_output, beta=beta)
 vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001))
 
 vae.fit(x=data_missing,y=data, epochs=100, batch_size=batch_size)
