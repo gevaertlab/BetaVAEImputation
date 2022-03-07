@@ -82,6 +82,7 @@ class VAE(keras.Model):
                     keras.losses.mean_squared_error(data, reconstruction)
                 )
             )
+            # reconstruction_loss =
             kl_loss = -0.5 * (1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
             kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=1))
             total_loss = reconstruction_loss + kl_loss
@@ -117,7 +118,6 @@ save_root = config["save_rootpath"]
 
 data = pd.read_csv(data_path).values
 data_missing = pd.read_csv(corrupt_data_path).values
-# How many genes do we have? ie. what is the dimensiontality of Yobs?
 n_row = data_missing.shape[1]  # dimensionality of data space
 
 network_architecture = \
@@ -153,5 +153,5 @@ network_builder  = NetworkBuilder(latent_dim=2, input_shape=n_row, network_archi
 encoder = network_builder.create_encoder()
 decoder = network_builder.create_decoder()
 vae = VAE(encoder, decoder)
-vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.00001))
-vae.fit(data_missing, epochs=30, batch_size=128)
+vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001))
+vae.fit(data, epochs=100, batch_size=batch_size)
