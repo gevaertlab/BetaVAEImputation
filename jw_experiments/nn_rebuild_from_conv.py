@@ -74,12 +74,13 @@ class VAE(keras.Model):
         ]
 
     def train_step(self, data):
+        x, y =  data
         with tf.GradientTape() as tape:
-            z_mean, z_log_var, z = self.encoder(data)
+            z_mean, z_log_var, z = self.encoder(x)
             reconstruction = self.decoder(z)
             reconstruction_loss = tf.reduce_mean(
                 tf.reduce_mean(
-                    keras.losses.mean_squared_error(data, reconstruction)
+                    keras.losses.mean_squared_error(y, reconstruction)
                 )
             )
             # reconstruction_loss =
@@ -97,9 +98,7 @@ class VAE(keras.Model):
             "kl_loss": self.kl_loss_tracker.result(),
         }
 
-# (x_train, _), (x_test, _) = keras.datasets.mnist.load_data()
-# mnist_digits = np.concatenate([x_train, x_test], axis=0)
-# mnist_digits = np.expand_dims(mnist_digits, -1).astype("float32") / 255
+
 os.chdir('..')
 with open("example_config_VAE.json") as f:
     config = json.load(f)
@@ -142,7 +141,7 @@ data_missing[na_ind] = 0  # Assign zero values to missing value indicies
 # Transform missing data by the scaling factors defined from all complete values
 data_missing = sc.transform(data_missing)
 # Re-assign the missing values to the same positions as before
-data_missing[na_ind] = np.nan
+# data_missing[na_ind] = np.nan
 del data_missing_complete
 
 # Remove strings and metadata from first few columns in data
@@ -154,4 +153,5 @@ encoder = network_builder.create_encoder()
 decoder = network_builder.create_decoder()
 vae = VAE(encoder, decoder)
 vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001))
-vae.fit(data, epochs=100, batch_size=batch_size)
+
+vae.fit(x=data_missing,y=data, epochs=100, batch_size=batch_size)
