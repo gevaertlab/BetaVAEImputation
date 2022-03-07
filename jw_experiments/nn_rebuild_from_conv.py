@@ -5,7 +5,44 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
+from keras import layers
+import keras.backend as K
+import tensorflow_probability as tfp
+
+
+def gaussian_nll(ytrue, ypreds):
+    """Keras implmementation of multivariate Gaussian negative loglikelihood loss function.
+    This implementation implies diagonal covariance matrix.
+
+    Parameters
+    ----------
+    ytrue: tf.tensor of shape [n_samples, n_dims]
+        ground truth values
+    ypreds: tf.tensor of shape [n_samples, n_dims*2]
+        predicted mu and logsigma values (e.g. by your neural network)
+
+    Returns
+    -------
+    neg_log_likelihood: float
+        negative loglikelihood averaged over samples
+
+    This loss can then be used as a target loss for any keras model, e.g.:
+        model.compile(loss=gaussian_nll, optimizer='Adam')
+
+    """
+
+
+    mu, log_sigma_sq = ypreds
+    sigma = K.sqrt(K.exp(log_sigma_sq))
+    logsigma = K.log(sigma)
+    n_dims = mu.shape[1]
+
+    sse = -0.5 * K.sum(K.square((ytrue - mu) / sigma), axis=1) # divide by sigma instead of sigma squared because sigma is inside the square operation
+    sigma_trace = -K.sum(logsigma, axis=1)
+    log2pi = -0.5 * n_dims * np.log(2 * np.pi)
+    log_likelihood = sse + sigma_trace + log2pi
+
+    return K.mean(-log_likelihood)
 
 class Sampling(layers.Layer):
     """Uses (z_mean, z_log_var) to sample z, the vector encoding a digit."""
@@ -18,44 +55,56 @@ class Sampling(layers.Layer):
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 class NetworkBuilder():
-    def __init__(self, latent_dim=2, input_shape=(28, 28, 1), network_architecture=None):
+    def __init__(self, latent_dim=2, input_shape=(28, 28, 1), network_architecture=None, proba_output=True):
         self.latent_dim = latent_dim
         self.input_shape = input_shape
         self.network_architecture = network_architecture
+        self.proba_output = proba_output
 
     def create_encoder(self):
         n_hidden_recog_1 = self.network_architecture['n_hidden_recog_1']
         n_hidden_recog_2 = self.network_architecture['n_hidden_recog_2']
         encoder_inputs = keras.Input(shape=self.input_shape)
-        x = layers.Dense(units=n_hidden_recog_1, activation="relu")(encoder_inputs)
-        x = layers.Dense(units=n_hidden_recog_2)(x)
-        # x = layers.Conv2D(64, 3, activation="relu", strides=2, padding="same")(x)
-        # x = layers.Flatten()(x)
-        # x = layers.Dense(16, activation="relu")(x)
-        z_mean = layers.Dense(self.latent_dim, name="z_mean")(x)
-        z_log_var = layers.Dense(self.latent_dim, name="z_log_var")(x)
+        h1 = layers.Dense(units=n_hidden_recog_1, activation="relu")(encoder_inputs)
+        h2 = layers.Dense(units=n_hidden_recog_2)(h1)
+        z_mean = layers.Dense(self.latent_dim, name="z_mean")(h2)
+        z_log_var = layers.Dense(self.latent_dim, name="z_log_var")(h2)
         z = Sampling()([z_mean, z_log_var])
         encoder = keras.Model(encoder_inputs, [z_mean, z_log_var, z], name="encoder")
         encoder.summary()
         return encoder
 
     def create_decoder(self):
+        if self.proba_output:
+            return self.create_probabalistic_decoder()
+        else:
+            return self.create_basic_decoder()
+
+    def create_basic_decoder(self):
         n_hidden_gener_1 = self.network_architecture['n_hidden_gener_1']
         n_hidden_gener_2 = self.network_architecture['n_hidden_gener_1']
         latent_inputs = keras.Input(shape=(self.latent_dim,))
-        x = layers.Dense(n_hidden_gener_1, activation="relu")(latent_inputs)
-        x = layers.Dense(n_hidden_gener_2, activation="relu")(x)
-        # x = layers.Reshape((7, 7, 64))(x)
-        # x = layers.Conv2DTranspose(64, 3, activation="relu", strides=2, padding="same")(x)
-        # x = layers.Conv2DTranspose(32, 3, activation="relu", strides=2, padding="same")(x)
-        # decoder_outputs = layers.Conv2DTranspose(1, 3, activation="sigmoid", padding="same")(x)
-        decoder_outputs = layers.Dense(self.input_shape)(x) # todo in the original implementation we define a distribution on the output
+        h1 = layers.Dense(n_hidden_gener_1, activation="relu")(latent_inputs)
+        h2 = layers.Dense(n_hidden_gener_2, activation="relu")(h1)
+        decoder_outputs = layers.Dense(self.input_shape)(h2) # todo in the original implementation we define a distribution on the output
         decoder = keras.Model(latent_inputs, decoder_outputs, name="decoder")
         decoder.summary()
         return decoder
 
+    def create_probabalistic_decoder(self):
+        n_hidden_gener_1 = self.network_architecture['n_hidden_gener_1']
+        n_hidden_gener_2 = self.network_architecture['n_hidden_gener_1']
+        latent_inputs = keras.Input(shape=(self.latent_dim,))
+        h1 = layers.Dense(n_hidden_gener_1, activation="relu", name='h1')(latent_inputs)
+        h2 = layers.Dense(n_hidden_gener_2, activation="relu", name='h2')(h1)
+        x_hat_mean = layers.Dense(self.input_shape, name='x_hat_mean')(h2)
+        x_hat_log_sigma_sq = layers.Dense(self.input_shape, name='x_hat_log_sigma_sq')(h2)
+        decoder = keras.Model(latent_inputs, [x_hat_mean, x_hat_log_sigma_sq], name="decoder")
+        decoder.summary()
+        return decoder
+
 class VAE(keras.Model):
-    def __init__(self, encoder, decoder, **kwargs):
+    def __init__(self, encoder, decoder, proba_output=True, **kwargs):
         super(VAE, self).__init__(**kwargs)
         self.encoder = encoder
         self.decoder = decoder
@@ -64,6 +113,7 @@ class VAE(keras.Model):
             name="reconstruction_loss"
         )
         self.kl_loss_tracker = keras.metrics.Mean(name="kl_loss")
+        self.proba_output = proba_output
 
     @property
     def metrics(self):
@@ -77,13 +127,21 @@ class VAE(keras.Model):
         x, y =  data
         with tf.GradientTape() as tape:
             z_mean, z_log_var, z = self.encoder(x)
-            reconstruction = self.decoder(z)
-            reconstruction_loss = tf.reduce_mean(
-                tf.reduce_mean(
-                    keras.losses.mean_squared_error(y, reconstruction)
+            if self.proba_output:
+                # output = self.decoder(z)
+                # tf.print(output[0].shape)
+                # tf.print(len(output))
+                x_hat_mean, x_hat_log_sigma_sq = self.decoder(z)
+                reconstruction_loss = gaussian_nll(y, (x_hat_mean, x_hat_log_sigma_sq))
+                # reconstruction_loss = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_log_sigma_sq).log_prob(y) # note that the scale parameter is sigma not sigma squared
+            else:
+                reconstruction = self.decoder(z)
+                reconstruction_loss = tf.reduce_mean(
+                    tf.reduce_mean(
+                        keras.losses.mean_squared_error(y, reconstruction)
+                    )
                 )
-            )
-            # reconstruction_loss =
+
             kl_loss = -0.5 * (1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
             kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=1))
             total_loss = reconstruction_loss + kl_loss
@@ -107,8 +165,8 @@ training_epochs = config["training_epochs"]  # 250
 batch_size = config["batch_size"]  # 250
 learning_rate = config["learning_rate"]  # 0.0005
 latent_size = config["latent_size"]  # 200
-hidden_size_1 = config["hidden_size_1"]
-hidden_size_2 = config["hidden_size_2"]
+hidden_size_1 = 50 #config["hidden_size_1"]
+hidden_size_2 = 20 #config["hidden_size_2"]
 beta = config["beta"]
 data_path = config["data_path"]
 corrupt_data_path = config["corrupt_data_path"]
@@ -148,10 +206,12 @@ del data_missing_complete
 data = np.delete(data, np.s_[0:4], axis=1)
 data = sc.transform(data)
 
-network_builder  = NetworkBuilder(latent_dim=2, input_shape=n_row, network_architecture=network_architecture)
+proba_output=True
+network_builder  = NetworkBuilder(latent_dim=2, input_shape=n_row,
+                                  network_architecture=network_architecture, proba_output=proba_output)
 encoder = network_builder.create_encoder()
 decoder = network_builder.create_decoder()
-vae = VAE(encoder, decoder)
+vae = VAE(encoder, decoder, proba_output=proba_output)
 vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001))
 
 vae.fit(x=data_missing,y=data, epochs=100, batch_size=batch_size)

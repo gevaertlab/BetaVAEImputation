@@ -2,7 +2,7 @@ import os
 # os.chdir("git_repository/BetaVAEImputation")
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from autoencodersbetaVAE import VariationalAutoencoder
 import pandas as pd
 import random
