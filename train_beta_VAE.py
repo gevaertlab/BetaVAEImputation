@@ -101,16 +101,3 @@ if __name__ == '__main__':
         
         saver = tf.compat.v1.train.Saver()
         save_path = saver.save(vae.sess, save_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt")
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
