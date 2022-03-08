@@ -46,11 +46,7 @@ class VariationalAutoencoderV2(keras.Model):
         n_hidden_recog_1 = self.network_architecture['n_hidden_recog_1']
         n_hidden_recog_2 = self.network_architecture['n_hidden_recog_2']
         encoder_inputs = keras.Input(shape=self.n_input_nodes)
-        h1_connector = encoder_inputs
-        if self.input_dropout:
-            dropout = layers.Dropout(rate=0.1, name='input_dropout')(encoder_inputs)
-            h1_connector = dropout
-        h1 = layers.Dense(units=n_hidden_recog_1, activation="relu", name='h1')(h1_connector)
+        h1 = layers.Dense(units=n_hidden_recog_1, activation="relu", name='h1')(encoder_inputs)
         n1 = layers.LayerNormalization(name='norm1')(h1)
         h2 = layers.Dense(units=n_hidden_recog_2, name='h2')(n1)
         n2 = layers.LayerNormalization(name='norm2')(h2)
@@ -200,6 +196,6 @@ if __name__=="__main__":
              n_input=n_row,  # data input size
              n_z=200)  # dimensionality of latent space
 
-    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=100, input_dropout=True)
+    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=100, mask_train=True)
     vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0))
     history = vae.fit(x=data, y=data, epochs=1000, batch_size=256) #  callbacks=[tensorboard_callback]
