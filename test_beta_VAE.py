@@ -21,12 +21,12 @@ tf.reset_default_graph()
 if __name__ == '__main__':
     
        
-        #args = parser.parse_args()
-        #with open(args.config) as f:
-        #    config = json.load(f)
-
-        with open("example_config_VAE.json") as f:
+        args = parser.parse_args()
+        with open(args.config) as f:
             config = json.load(f)
+
+        #with open("example_config_VAE.json") as f:
+        #    config = json.load(f)
     
         training_epochs=config["training_epochs"] #250
         batch_size=config["batch_size"] #250
@@ -91,32 +91,8 @@ if __name__ == '__main__':
                                      learning_rate=learning_rate, 
                                      batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
 
-        # Wrote a function within autoencodersbetaVAE.py to extract the z space, let's see what it does
-        tmp = vae.get_z_distribution
-        # attempt to extract z from read-in vae object
-        z_space = vae.z
-        z_mean = vae.z_mean
-        z_log_sigma_sq = vae.z_log_sigma_sq
-
-        #initialize the variable
-        init = tf.global_variables_initializer()
-
-        #run the graph
-        with tf.InteractiveSession() as sess:
-            sess.run(init) #execute init
-            #print the random values that we sample
-            print(sess.run(z_space, 
-                             feed_dict={x: data}))
-
         
-
-        ## Test impute function and try and break it down
-        self = VariationalAutoencoder(network_architecture,
-                                     learning_rate=learning_rate, 
-                                     batch_size=batch_size,istrain=False,restore_path=rp,beta=beta) 
-
         ## Now we go into autoencodersbetaVAE.py and try and deconstruct the impute function
-        data_corrupt = data_missing
         max_iter = ImputeIter
 
         data_impute = vae.impute(data_corrupt = data_missing, max_iter = ImputeIter)
@@ -126,7 +102,7 @@ if __name__ == '__main__':
         ReconstructionError = sum(((data_impute[na_ind] - data[na_ind])**2)**0.5)/na_count
         print('Reconstruction error (VAE):')
         print(ReconstructionError)
-        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",")  
+        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",") 
         
     
         
