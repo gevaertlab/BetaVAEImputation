@@ -16,12 +16,13 @@ parser.add_argument('--config', type=str, default='config.json', help='configura
 
 if __name__ == '__main__':
     
-        #args = parser.parse_args()
-        #with open(args.config) as f:
-        #    config = json.load(f)
-
-        with open("example_config_VAE.json") as f:
+        args = parser.parse_args()
+        with open(args.config) as f:
             config = json.load(f)
+
+        # For running locally
+        #with open("example_config_VAE.json") as f:
+        #    config = json.load(f)
 
     
         training_epochs=config["training_epochs"] #250
@@ -89,16 +90,6 @@ if __name__ == '__main__':
         vae = vae.train(data=data_missing,
                         training_epochs=training_epochs)
 
-        # What does x_hat_distribution look like?
-        tmp = vae.test_sampling(data_corrupt = data_missing)
-        # Looks like this is a Tensor, not a dataframe
-
-        # Test updates to VAE object class
-        # specify number of imputation iterations:
-        ImputeIter = 3
-
-        data_imputed_sample = vae.impute_multiple(data_corrupt = data_missing, max_iter = ImputeIter)
-        
         saver = tf.train.Saver()
         save_path = saver.save(vae.sess, save_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt")
         
