@@ -1,3 +1,4 @@
+import datetime
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
@@ -19,7 +20,7 @@ class Sampling(layers.Layer):
 
 class VariationalAutoencoderV2(keras.Model):
     def __init__(self, network_architecture=None, proba_output=True, beta=1,
-                 pretrained_encoder=None, pretrained_decoder=None, **kwargs):
+                 pretrained_encoder=None, pretrained_decoder=None, mask_train=False, **kwargs):
         super(VariationalAutoencoderV2, self).__init__(**kwargs)
         self.latent_dim = network_architecture['n_z']
         self.n_input_nodes = network_architecture['n_input']
@@ -31,6 +32,7 @@ class VariationalAutoencoderV2(keras.Model):
             name="reconstruction_loss"
         )
         self.kl_loss_tracker = keras.metrics.Mean(name="kl_loss")
+        self.mask_train = mask_train
         if pretrained_encoder is not None:
             self.encoder = pretrained_encoder
         else:
@@ -44,9 +46,15 @@ class VariationalAutoencoderV2(keras.Model):
         n_hidden_recog_1 = self.network_architecture['n_hidden_recog_1']
         n_hidden_recog_2 = self.network_architecture['n_hidden_recog_2']
         encoder_inputs = keras.Input(shape=self.n_input_nodes)
-        h1 = layers.Dense(units=n_hidden_recog_1, activation="relu")(encoder_inputs)
-        h2 = layers.Dense(units=n_hidden_recog_2)(h1)
-        z_mean = layers.Dense(self.latent_dim, name="z_mean")(h2)
+        h1_connector = encoder_inputs
+        if self.input_dropout:
+            dropout = layers.Dropout(rate=0.1, name='input_dropout')(encoder_inputs)
+            h1_connector = dropout
+        h1 = layers.Dense(units=n_hidden_recog_1, activation="relu", name='h1')(h1_connector)
+        n1 = layers.LayerNormalization(name='norm1')(h1)
+        h2 = layers.Dense(units=n_hidden_recog_2, name='h2')(n1)
+        n2 = layers.LayerNormalization(name='norm2')(h2)
+        z_mean = layers.Dense(self.latent_dim, name="z_mean")(n2)
         z_log_var = layers.Dense(self.latent_dim, name="z_log_var")(h2)
         z = Sampling()([z_mean, z_log_var])
         encoder = keras.Model(encoder_inputs, [z_mean, z_log_var, z], name="encoder")
@@ -64,8 +72,10 @@ class VariationalAutoencoderV2(keras.Model):
         n_hidden_gener_2 = self.network_architecture['n_hidden_gener_1']
         latent_inputs = keras.Input(shape=(self.latent_dim,))
         h1 = layers.Dense(n_hidden_gener_1, activation="relu")(latent_inputs)
-        h2 = layers.Dense(n_hidden_gener_2, activation="relu")(h1)
-        decoder_outputs = layers.Dense(self.n_input_nodes)(h2) # todo in the original implementation we define a distribution on the output
+        n1 = layers.LayerNormalization()(h1)
+        h2 = layers.Dense(n_hidden_gener_2, activation="relu")(n1)
+        n2 = layers.LayerNormalization()(h2)
+        decoder_outputs = layers.Dense(self.n_input_nodes)(n2)
         decoder = keras.Model(latent_inputs, decoder_outputs, name="decoder")
         decoder.summary()
         return decoder
@@ -75,8 +85,10 @@ class VariationalAutoencoderV2(keras.Model):
         n_hidden_gener_2 = self.network_architecture['n_hidden_gener_1']
         latent_inputs = keras.Input(shape=(self.latent_dim,))
         h1 = layers.Dense(n_hidden_gener_1, activation="relu", name='h1')(latent_inputs)
-        h2 = layers.Dense(n_hidden_gener_2, activation="relu", name='h2')(h1)
-        x_hat_mean = layers.Dense(self.n_input_nodes, name='x_hat_mean')(h2)
+        n1 = layers.LayerNormalization()(h1)
+        h2 = layers.Dense(n_hidden_gener_2, activation="relu", name='h2')(n1)
+        n2 = layers.LayerNormalization()(h2)
+        x_hat_mean = layers.Dense(self.n_input_nodes, name='x_hat_mean')(n2)
         x_hat_log_sigma_sq = layers.Dense(self.n_input_nodes, name='x_hat_log_sigma_sq')(h2)
         decoder = keras.Model(latent_inputs, [x_hat_mean, x_hat_log_sigma_sq], name="decoder")
         decoder.summary()
@@ -122,9 +134,18 @@ class VariationalAutoencoderV2(keras.Model):
             self.reconstruction_loss_tracker,
             self.kl_loss_tracker,
         ]
+    def add_zero_mask(self, x, col_prop=0.1, row_prop=0.2):
+        n_miss_cols = int(x.shape[1]*col_prop)
+        n_miss_rows = int(x.shape[0]*row_prop)
+        miss_cols = np.array([np.random.choice(x.shape[1], size=n_miss_cols, replace=False) for _ in range(n_miss_rows)]).reshape(-1)
+        miss_rows = np.repeat(np.random.choice(x.shape[0], size=n_miss_rows, replace=False), repeats=n_miss_cols)
+        x[(miss_cols, miss_rows)] = 0
+        return x
 
     def train_step(self, data):
         x, y = data
+        if self.mask_train:
+            x = self.add_zero_mask(x)
         with tf.GradientTape() as tape:
             z_mean, z_log_var, z = self.encoder(x)
             if self.proba_output:
@@ -179,6 +200,6 @@ if __name__=="__main__":
              n_input=n_row,  # data input size
              n_z=200)  # dimensionality of latent space
 
-    vae = VariationalAutoencoderV2(network_architecture=network_architecture)
+    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=100, input_dropout=True)
     vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0))
-    vae.fit(x=data_missing, y=data, epochs=1000, batch_size=256)
+    history = vae.fit(x=data, y=data, epochs=1000, batch_size=256) #  callbacks=[tensorboard_callback]

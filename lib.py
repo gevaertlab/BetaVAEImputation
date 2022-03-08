@@ -18,7 +18,6 @@ def get_scaled_data():
     data_missing[na_ind] = 0
     data_missing = sc.transform(data_missing)
     del data_missing_complete
-    # data = np.delete(data, np.s_[0:4], axis=1)
     data = np.array(np.copy(data[:,4:]),dtype='float64')
     return data, data_missing
 
