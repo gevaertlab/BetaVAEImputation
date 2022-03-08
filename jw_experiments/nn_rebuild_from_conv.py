@@ -159,8 +159,11 @@ class VAE(keras.Model):
         }
     def predict(self, x):
         z_mean, z_log_var, z = self.encoder(x)
-        x_hat_mean, x_hat_log_sigma_sq = self.decoder(z_mean)
-        return x_hat_mean
+        if self.proba_output:
+            x_hat_mean, x_hat_log_sigma_sq = self.decoder(z_mean)
+            return x_hat_mean
+        else:
+            return self.decoder(z_mean)
 
 def evaluate_model_performance(model, missing_data, data, na_ind):
     preds = model.predict(missing_data)
@@ -177,8 +180,8 @@ training_epochs = config["training_epochs"]  # 250
 batch_size = config["batch_size"]  # 250
 learning_rate = config["learning_rate"]  # 0.0005
 latent_size = config["latent_size"]  # 200
-hidden_size_1 = 500 #config["hidden_size_1"]
-hidden_size_2 = 200 #config["hidden_size_2"]
+hidden_size_1 = config["hidden_size_1"]
+hidden_size_2 = config["hidden_size_2"]
 beta = config["beta"]
 data_path = config["data_path"]
 corrupt_data_path = config["corrupt_data_path"]
@@ -218,21 +221,22 @@ del data_missing_complete
 data = np.delete(data, np.s_[0:4], axis=1)
 data = sc.transform(data)
 
-proba_output=True
+proba_output=False
 tf.random.set_seed(13)
 network_builder  = NetworkBuilder(latent_dim=2, input_shape=n_row,
                                   network_architecture=network_architecture, proba_output=proba_output)
-load_model = False
-encoder_path = 'output/encoder_model.keras'
-decoder_path = 'output/decoder_model.keras'
+load_model = True
+encoder_path = 'output/encoder_model_non_prob.keras'
+decoder_path = 'output/decoder_model_non_prob.keras'
 if load_model:
     encoder = keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
     decoder = keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
 else:
     encoder = network_builder.create_encoder()
     decoder = network_builder.create_decoder()
+beta = 0.002
 vae = VAE(encoder, decoder, proba_output=proba_output, beta=beta)
-vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.000005))
+vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001))
 
 r_squared_on_missing = evaluate_model_performance(model=vae, missing_data=data_missing, data=data, na_ind=na_ind)
 print(f'r-squared on the missing values: {r_squared_on_missing}')
