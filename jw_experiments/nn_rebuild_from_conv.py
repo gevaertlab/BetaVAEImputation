@@ -3,6 +3,7 @@ import numpy as np
 import json
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
 import tensorflow as tf
 from tensorflow import keras
 from keras import layers
@@ -161,8 +162,12 @@ class VAE(keras.Model):
         x_hat_mean, x_hat_log_sigma_sq = self.decoder(z_mean)
         return x_hat_mean
 
-def evaluate_model_performance():
-    pass
+def evaluate_model_performance(model, missing_data, data, na_ind):
+    preds = model.predict(missing_data)
+    missing_preds = preds.numpy()[na_ind]
+    true_values = data[na_ind]
+    r2 = r2_score(true_values, missing_preds)
+    return r2
 
 os.chdir('..')
 with open("example_config_VAE.json") as f:
@@ -227,8 +232,10 @@ else:
     encoder = network_builder.create_encoder()
     decoder = network_builder.create_decoder()
 vae = VAE(encoder, decoder, proba_output=proba_output, beta=beta)
-vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.00005))
-preds = vae.predict(data_missing)
+vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.00002))
+
+r_squared_on_missing = evaluate_model_performance(model=vae, missing_data=data_missing, data=data, na_ind=na_ind)
+print(f'r-squared on the missing values: {r_squared_on_missing}')
 vae.fit(x=data_missing,y=data, epochs=100, batch_size=batch_size)
 vae.encoder.save(encoder_path)
 vae.decoder.save(decoder_path)
