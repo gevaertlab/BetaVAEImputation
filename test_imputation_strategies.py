@@ -67,6 +67,7 @@ if __name__ == '__main__':
         data = np.delete(data,np.s_[0:4], axis=1)
         data = sc.transform(data)
         
+        data_missing2 = np.copy(data_missing)
         
         # VAE network size:
         Decoder_hidden1 = hidden_size_1 #6000
@@ -102,26 +103,38 @@ if __name__ == '__main__':
         imputed_data, conv = vae.impute(data_corrupt = data_missing, max_iter = max_iter)
 
         print(conv) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        iter = list(range(1,num_iter+1))
+        iter = list(range(1,max_iter+1))
         plt.plot(iter, conv, 'ro')
-        plt.axis([0,num_iter+1,0,max(conv)+0.05])
+        plt.axis([0,max_iter+1,0,max(conv)+0.05])
         plt.ylabel('convergence')
         plt.show()
 
         # Let's do the same with multiple imputation
-        #mult_imputed_data, mult_conv = vae.impute_multiple(data_corrupt = data_missing, max_iter = num_iter)
+        vae_mult = VariationalAutoencoder(network_architecture,
+                                     learning_rate=learning_rate, 
+                                     batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
 
-        #print(mult_conv) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        #iter = list(range(1,num_iter+1))
-        #plt.plot(iter, mult_conv, 'ro')
-        #plt.axis([0,num_iter,0,max(mult_conv)])
-        #plt.ylabel('convergence')
-        #plt.show()
+        mult_imputed_data, mult_conv = vae_mult.impute_multiple(data_corrupt = data_missing2, max_iter = max_iter)
+
+        print(mult_conv) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        iter = list(range(1,max_iter+1))
+        plt.plot(iter, mult_conv, 'ro')
+        plt.axis([0,max_iter+1,0,max(mult_conv)+0.1])
+        plt.ylabel('convergence')
+        plt.show()
         
+        # Single imputation setting
         data = sc.inverse_transform(data)
-        data_impute = sc.inverse_transform(data_impute)
-        ReconstructionError = sum(((data_impute[na_ind] - data[na_ind])**2)**0.5)/na_count
-        print('Reconstruction error (VAE):')
+        imputed_data = sc.inverse_transform(imputed_data)
+        ReconstructionError = sum(((imputed_data[na_ind] - data[na_ind])**2)**0.5)/na_count
+        print('Reconstruction error on single imputation (VAE):')
         print(ReconstructionError)
         np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",") 
+
+        # Multiple imputation setting
+        mult_imputed_data = sc.inverse_transform(mult_imputed_data)
+        ReconstructionError = sum(((mult_imputed_data[na_ind] - data[na_ind])**2)**0.5)/na_count
+        print('Reconstruction error on multiple imputation (VAE):')
+        print(ReconstructionError)
+        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",")  
         
