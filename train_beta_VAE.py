@@ -13,9 +13,15 @@ import json
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
-
+print(tf.config.list_physical_devices(
+    device_type='GPU'
+))
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.set_visible_devices(physical_devices[-1], 'GPU')
+logical_devices = tf.config.list_logical_devices('GPU')
+# tf.config.set_visible_devices([], 'GPU') # disable GPU
 if __name__ == '__main__':
-    
+
         #args = parser.parse_args()
         #with open(args.config) as f:
         #    config = json.load(f)

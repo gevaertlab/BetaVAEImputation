@@ -1,4 +1,5 @@
 import os
+import time
 import numpy as np
 import json
 import pandas as pd
@@ -32,7 +33,6 @@ def gaussian_nll(ytrue, ypreds):
 
     """
 
-
     mu, log_sigma_sq = ypreds
     sigma = K.sqrt(K.exp(log_sigma_sq))
     logsigma = K.log(sigma)
@@ -56,8 +56,8 @@ class Sampling(layers.Layer):
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 class NetworkBuilder():
-    def __init__(self, latent_dim=2, input_shape=(28, 28, 1), network_architecture=None, proba_output=True):
-        self.latent_dim = latent_dim
+    def __init__(self, input_shape=(28, 28, 1), network_architecture=None, proba_output=True):
+        self.latent_dim = network_architecture['n_z']
         self.input_shape = input_shape
         self.network_architecture = network_architecture
         self.proba_output = proba_output
@@ -116,6 +116,8 @@ class VAE(keras.Model):
         self.kl_loss_tracker = keras.metrics.Mean(name="kl_loss")
         self.proba_output = proba_output
         self.beta = beta
+        self.encoder.summary()
+        self.decoder.summary()
 
     @property
     def metrics(self):
@@ -126,7 +128,7 @@ class VAE(keras.Model):
         ]
 
     def train_step(self, data):
-        x, y =  data
+        x, y = data
         with tf.GradientTape() as tape:
             z_mean, z_log_var, z = self.encoder(x)
             if self.proba_output:
@@ -190,14 +192,14 @@ save_root = config["save_rootpath"]
 
 data = pd.read_csv(data_path).values
 data_missing = pd.read_csv(corrupt_data_path).values
-n_row = data_missing.shape[1]  # dimensionality of data space
+n_col = data_missing.shape[1]  # dimensionality of data space
 
 network_architecture = \
     dict(n_hidden_recog_1=hidden_size_1,  # 1st layer encoder neurons
          n_hidden_recog_2=hidden_size_2,  # 2nd layer encoder neurons
          n_hidden_gener_1=hidden_size_2,  # 1st layer decoder neurons
          n_hidden_gener_2=hidden_size_1,  # 2nd layer decoder neurons
-         n_input=n_row,  # data input size
+         n_input=n_col,  # data input size
          n_z=latent_size)  # dimensionality of latent space
 
 # Store the index of each sample that is complete
@@ -216,30 +218,37 @@ data_missing = sc.transform(data_missing)
 # Re-assign the missing values to the same positions as before
 # data_missing[na_ind] = np.nan
 del data_missing_complete
-
+# tf.config.set_visible_devices([], 'GPU')
 # Remove strings and metadata from first few columns in data
 data = np.delete(data, np.s_[0:4], axis=1)
 data = sc.transform(data)
 
-proba_output=False
+proba_output = True # generates probabalistic output (with mean and variance and the loss is based on the probability that the observed comes from the distribution)
 tf.random.set_seed(13)
-network_builder  = NetworkBuilder(latent_dim=2, input_shape=n_row,
+network_builder = NetworkBuilder(input_shape=n_col,
                                   network_architecture=network_architecture, proba_output=proba_output)
 load_model = True
-encoder_path = 'output/encoder_model_non_prob.keras'
-decoder_path = 'output/decoder_model_non_prob.keras'
+encoder_path = 'output/200encoder_model_gpu.keras'
+decoder_path = 'output/200decoder_model_gpu.keras'
 if load_model:
     encoder = keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
     decoder = keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
 else:
     encoder = network_builder.create_encoder()
     decoder = network_builder.create_decoder()
-beta = 0.002
+beta = 10
 vae = VAE(encoder, decoder, proba_output=proba_output, beta=beta)
-vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001))
+vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001, clipnorm=2.0))
 
 r_squared_on_missing = evaluate_model_performance(model=vae, missing_data=data_missing, data=data, na_ind=na_ind)
 print(f'r-squared on the missing values: {r_squared_on_missing}')
-vae.fit(x=data_missing,y=data, epochs=100, batch_size=batch_size)
+print(f' built with cuda {tf.test.is_built_with_cuda()}')
+print(f' GPU available {tf.test.is_gpu_available()}')
+start = time.time()
+vae.fit(x=data_missing,y=data, epochs=500, batch_size=batch_size)
+total_time = time.time() - start
+
+print(f'training time {total_time}')
+
 vae.encoder.save(encoder_path)
 vae.decoder.save(decoder_path)
