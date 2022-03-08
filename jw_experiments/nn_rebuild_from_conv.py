@@ -222,7 +222,7 @@ proba_output=True
 tf.random.set_seed(13)
 network_builder  = NetworkBuilder(latent_dim=2, input_shape=n_row,
                                   network_architecture=network_architecture, proba_output=proba_output)
-load_model = True
+load_model = False
 encoder_path = 'output/encoder_model.keras'
 decoder_path = 'output/decoder_model.keras'
 if load_model:
@@ -232,7 +232,7 @@ else:
     encoder = network_builder.create_encoder()
     decoder = network_builder.create_decoder()
 vae = VAE(encoder, decoder, proba_output=proba_output, beta=beta)
-vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.00002))
+vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.000005))
 
 r_squared_on_missing = evaluate_model_performance(model=vae, missing_data=data_missing, data=data, na_ind=na_ind)
 print(f'r-squared on the missing values: {r_squared_on_missing}')

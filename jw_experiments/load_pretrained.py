@@ -1,14 +1,19 @@
-import matplotlib.pyplot as plt
+
 import os
 from autoencodersbetaVAE import VariationalAutoencoder
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-import random
-import tensorflow as tf
-import sys
+from sklearn.metrics import r2_score
 import argparse
 import json
+
+def evaluate_model_performance(model, missing_data, data, na_ind):
+    preds = model.impute(missing_data)
+    missing_preds = preds[na_ind]
+    true_values = data[na_ind]
+    r2 = r2_score(true_values, missing_preds)
+    return r2
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
@@ -87,6 +92,10 @@ if __name__ == '__main__':
                                  learning_rate=learning_rate,
                                  batch_size=batch_size, istrain=False, restore_path=rp,
                                  beta=beta)
+
+    r2_on_masked = evaluate_model_performance(model=vae, missing_data=data_missing, data=data, na_ind=na_ind)
+    print(f'r-squared on the missing values: {r2_on_masked}')
     # train VAE on corrupted data:
     vae = vae.train(data=data_missing,
                     training_epochs=training_epochs)
+
