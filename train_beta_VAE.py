@@ -22,14 +22,14 @@ logical_devices = tf.config.list_logical_devices('GPU')
 # tf.config.set_visible_devices([], 'GPU') # disable GPU
 if __name__ == '__main__':
 
-        #args = parser.parse_args()
-        #with open(args.config) as f:
-        #    config = json.load(f)
+        # args = parser.parse_args()
+        # with open(args.config) as f:
+        #     config = json.load(f)
 
+        # For running locally
         with open("example_config_VAE.json") as f:
-            config = json.load(f)
+           config = json.load(f)
 
-    
         training_epochs=config["training_epochs"] #250
         batch_size=config["batch_size"] #250
         learning_rate=config["learning_rate"] #0.0005
@@ -105,5 +105,8 @@ if __name__ == '__main__':
 
         data_imputed_sample = vae.impute(data_corrupt = data_missing, max_iter = ImputeIter)
         
-        saver = tf.compat.v1.train.Saver()
+        try:
+            saver = tf.train.Saver()
+        except:
+            saver = tf.compat.v1.train.Saver()
         save_path = saver.save(vae.sess, save_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt")

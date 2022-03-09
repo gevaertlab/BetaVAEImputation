@@ -171,7 +171,7 @@ for (SEED in c(1:10)){
   feature_corrupted=feature
   feature_subset=feature[missing_rowind,]
   corrupt_subset=missing_row_nonmissingones*feature_subset
-  feature_corrupted[missing_rowind,]<- corrupt_subset
+  feature_corrupted[missing_rowind,] <- corrupt_subset
   feature_corrupted[feature_corrupted==0]<-NA
   
   sum(is.na(rowSums(feature_corrupted)))/sample_n

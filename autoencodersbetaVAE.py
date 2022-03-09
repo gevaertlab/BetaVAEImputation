@@ -201,22 +201,31 @@ class VariationalAutoencoder(object):
         """
         # Find all missing row indices (samples/patients with any missing values)
         missing_row_ind = np.where(np.isnan(np.sum(data_corrupt,axis=1)))
-        data_miss_val = data_corrupt[missing_row_ind[0],:]
+        # copy to a new dataframe so that the original numpy array doesn't get changed
+        data_miss_val = np.copy(data_corrupt[missing_row_ind[0],:]) 
         
         # Set all missing values at each location to zero before imputation begins
         na_ind = np.where(np.isnan(data_miss_val))
         data_miss_val[na_ind] = 0
-        tmp = data_miss_val  
+        convergence = []
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
             previous_missing = np.copy(data_miss_val)
             data_reconstruct = self.reconstruct(data_miss_val)
+            if i != 0:
+                print(data_reconstruct[na_ind] - data_miss_val[na_ind])
+            # Take average of absolute values across all values different between reconstructed data from previous step
+            vals = np.abs(data_reconstruct[na_ind] - data_miss_val[na_ind])
+            convergence.append(np.mean(vals))
+            # Replace values in data_miss_val with reconstructed values at NA indices
             data_miss_val[na_ind] = data_reconstruct[na_ind]
+        
         
         data_corrupt[missing_row_ind,:] = data_miss_val
         data_imputed = data_corrupt
+        # Here i think we need a np.copy statement s.t. it doesn't change OG input
 
-        return data_imputed
+        return data_imputed, convergence
 
 
     def impute_multiple(self, data_corrupt, max_iter = 10):
@@ -230,7 +239,7 @@ class VariationalAutoencoder(object):
         # Set all missing values at each location to zero before imputation begins
         na_ind = np.where(np.isnan(data_miss_val))
         data_miss_val[na_ind] = 0
-
+        convergence = []
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
             ## Here - need a function which passes z_sample into the decoder and obtains the distribution of x_hat
@@ -247,14 +256,16 @@ class VariationalAutoencoder(object):
                                     scale=tf.sqrt(tf.exp(x_hat_log_sigma_sq)))
 
             x_hat_sample = self.sess.run(X_hat_distribution.sample())
-            
+            # Take average of absolute values across all values different between reconstructed data from previous step
+            vals = np.abs(x_hat_sample[na_ind] - data_miss_val[na_ind])
+            convergence.append(np.mean(vals))
             data_miss_val[na_ind] = x_hat_sample[na_ind] 
 
         # after the iterations have run through, you will have 1 of m plausible MI datasets
         data_corrupt[missing_row_ind,:] = data_miss_val
         data_imputed = data_corrupt
 
-        return data_imputed
+        return data_imputed, convergence
 
     def test_sampling(self, data_corrupt, max_iter = 10):
         """
@@ -303,7 +314,10 @@ class VariationalAutoencoder(object):
         for epoch in range(training_epochs):
             avg_cost = 0
             total_batch = int(n_samples / self.batch_size)
+            #random.seed(training_epochs)
             for i in range(total_batch):
+                # Do we need to set a seed based on total_batch?
+                # pass into next_batch() function s.t. data gets randomly partitioned the same way each time?
                 batch_xs = next_batch(data,self.batch_size)
                 cost = self.fit(batch_xs)
                 lc = self.inspect_latent_cost(batch_xs)
@@ -324,7 +338,9 @@ def next_batch(data,batch_size):
     non_missing_row_ind = np.where(np.isfinite(np.sum(data,axis=1)))
     sample_ind = random.sample(list(non_missing_row_ind[0]),batch_size)
     data_sample = np.copy(data[sample_ind,:])
-    
+    if len(np.where(np.isnan(data_sample))[0]) > 0:
+        print("Batch contains NAs")
+        breakpoint = True
     return data_sample
 
 def xavier_init(fan_in, fan_out, constant=1): 

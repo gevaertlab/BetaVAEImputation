@@ -11,6 +11,12 @@ from keras import layers
 import keras.backend as K
 import tensorflow_probability as tfp
 
+"""
+This module implements a variational autoencoer in tensorflow version 2
+The code is based on a convolutional autoencoder for images found here:
+https://keras.io/examples/generative/vae/
+This module is refactored and improved in betaVAEv2.py 
+"""
 
 def gaussian_nll(ytrue, ypreds):
     """Keras implmementation of multivariate Gaussian negative loglikelihood loss function.
