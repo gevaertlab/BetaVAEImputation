@@ -22,3 +22,13 @@ def get_scaled_data():
     return data, data_missing
 
 
+def add_zero_mask(x, col_prop=0.1, row_prop=0.2):
+    """
+    Changes a randomly selected proportion of the data to zero to simulate missing values
+    """
+    n_miss_cols = int(x.shape[1]*col_prop)
+    n_miss_rows = int(x.shape[0]*row_prop)
+    miss_cols = np.array([np.random.choice(x.shape[1], size=n_miss_cols, replace=False) for _ in range(n_miss_rows)]).reshape(-1)
+    miss_rows = np.repeat(np.random.choice(x.shape[0], size=n_miss_rows, replace=False), repeats=n_miss_cols)
+    x[(miss_cols, miss_rows)] = 0
+    return x
