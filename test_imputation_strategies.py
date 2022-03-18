@@ -109,17 +109,34 @@ if __name__ == '__main__':
         plt.ylabel('convergence')
         plt.show()
 
+        # Generate m plausible datasets via impute_multiple() function
+
         # Let's do the same with multiple imputation
         vae_mult = VariationalAutoencoder(network_architecture,
                                      learning_rate=learning_rate, 
                                      batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
 
-        mult_imputed_data, mult_conv = vae_mult.impute_multiple(data_corrupt = data_missing2, max_iter = max_iter)
+        # Let's run a for loop where we copy data_missing2 at the beginning and feed that into impute_multiple()
+        m = int(10)
+        mult_imp_datasets = []
+        mult_convs = []
+        for i in range(m):
+            print("Generating plausible dataset", i+1)
 
-        print(mult_conv) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+            data_missing_mult = np.copy(data_missing2)
+            mult_imputed_data, mult_conv = vae_mult.impute_multiple(data_corrupt = data_missing_mult, max_iter = max_iter)
+
+            # Add to list
+            mult_imp_datasets.append(np.copy(mult_imputed_data))
+            mult_convs.append(np.copy(mult_conv))
+
+        # Check each plausible dataset is unique
+        mult_imp_datasets[0] != mult_imp_datasets[1] # good!
+
+        print(mult_convs) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
         iter = list(range(1,max_iter+1))
-        plt.plot(iter, mult_conv, 'ro')
-        plt.axis([0,max_iter+1,0,max(mult_conv)+0.1])
+        plt.plot(iter, mult_convs[0], 'ro')
+        plt.axis([0,max_iter+1,0,max(mult_conv[0])+0.1])
         plt.ylabel('convergence')
         plt.show()
         
@@ -129,12 +146,27 @@ if __name__ == '__main__':
         ReconstructionError = sum(((imputed_data[na_ind] - data[na_ind])**2)**0.5)/na_count
         print('Reconstruction error on single imputation (VAE):')
         print(ReconstructionError)
-        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",") 
+        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", imputed_data, delimiter=",") 
 
         # Multiple imputation setting
-        mult_imputed_data = sc.inverse_transform(mult_imputed_data)
-        ReconstructionError = sum(((mult_imputed_data[na_ind] - data[na_ind])**2)**0.5)/na_count
-        print('Reconstruction error on multiple imputation (VAE):')
-        print(ReconstructionError)
-        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",")  
+        # First of all we need to inverse transform all plausible datasets and then compute an average across for our final dataset
+        # Can also plot the reconstruction error of each in a boxplot?
+        reconstr_error = []
+        for i in range(m):
+            print("Transforming imputed dataset", i+1)
+            mult_imp_datasets[i] = sc.inverse_transform(mult_imp_datasets[i]) 
+            print("Computing reconstruction error for dataset", i+1)
+            reconstr_error.append(sum(((mult_imp_datasets[i][na_ind] - data[na_ind])**2)**0.5)/na_count)
+
+        plt.boxplot(reconstr_error)
+        plt.ylabel("reconstruction error")
+        plt.show()
+
+        for i in range(m):
+            print("Saving plausible dataset", i+1)
+            np.savetxt("./mult_imputed_data_trial_"+str(trial_ind)+"_dataset_"+str(m)+"_VAE.csv", mult_imp_datasets[i], delimiter=",")  
+
+        for i in range(m):
+            print('Reconstruction error on multiple imputation (VAE) for dataset', i+1, reconstr_error[i])
+
         

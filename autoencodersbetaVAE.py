@@ -112,10 +112,12 @@ class VariationalAutoencoder(object):
             
     def _create_loss_optimizer(self):
 
-        # 1. Reconstruction loss - the negative log probability of of the input under the reconstructed Bernoulli distribution
+        # 1. Reconstruction loss - the negative log probability of of the input under the reconstructed Bernoulli distribution (Bernoulli? should be Gaussian?)
         # induced by the decoder in the latent space 
+        # Note: if we want to use all observed data, instead of splitting into training and testing, this reconstruction loss/xhat distribution would only
+        # consider observed/non missing data - in 119 replace log prob with zero for missing indices?
         X_hat_distribution = Normal(loc=self.x_hat_mean,
-                                    scale=tf.exp(self.x_hat_log_sigma_sq))
+                                    scale=tf.sqrt(tf.exp(self.x_hat_log_sigma_sq))) # not taking square root here
         reconstr_loss = \
             -tf.reduce_sum(X_hat_distribution.log_prob(self.x), 1)
           
@@ -217,6 +219,10 @@ class VariationalAutoencoder(object):
             # Take average of absolute values across all values different between reconstructed data from previous step
             vals = np.abs(data_reconstruct[na_ind] - data_miss_val[na_ind])
             convergence.append(np.mean(vals))
+
+            # l2 
+            #vals_l2 = (data_reconstruct[na_ind] - data_miss_val[na_ind])**2
+            #convergence_l2.append(np.sqrt(np.mean(vals_l2)))
             # Replace values in data_miss_val with reconstructed values at NA indices
             data_miss_val[na_ind] = data_reconstruct[na_ind]
         
