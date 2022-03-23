@@ -216,6 +216,7 @@ class VariationalAutoencoder(object):
         data_miss_val[na_ind] = 0
         convergence = []
         convergence_loglik = []
+        largest_imp_val = []
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
             ## Here - need a function which passes z_sample into the decoder and obtains the distribution of x_hat
@@ -249,6 +250,9 @@ class VariationalAutoencoder(object):
             sum_log_likl = self.sess.run(log_likl_na)
             convergence_loglik.append(sum_log_likl)
 
+            # Store the largest value imputed at the NA indices
+            largest_imp_val.append(np.amax(x_hat_sample[na_ind]))
+
             # Replace na_ind with newly imputed values
             data_miss_val[na_ind] = x_hat_sample[na_ind] 
 
@@ -256,7 +260,7 @@ class VariationalAutoencoder(object):
         data_corrupt[missing_row_ind,:] = data_miss_val
         data_imputed = data_corrupt
 
-        return data_imputed, convergence, convergence_loglik
+        return data_imputed, convergence, convergence_loglik, largest_imp_val
 
     def test_sampling(self, data_corrupt, max_iter = 10):
         """
