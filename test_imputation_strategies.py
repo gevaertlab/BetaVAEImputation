@@ -90,9 +90,9 @@ if __name__ == '__main__':
                  n_z=latent_size)  # dimensionality of latent space
         
         # initialise VAE:
-        vae = VariationalAutoencoder(network_architecture,
-                                     learning_rate=learning_rate, 
-                                     batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
+        #vae = VariationalAutoencoder(network_architecture,
+        #                             learning_rate=learning_rate, 
+        #                             batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
 
         
         ## Now we go into autoencodersbetaVAE.py and try and deconstruct the impute function
@@ -102,14 +102,14 @@ if __name__ == '__main__':
         # What we can do is look at the location of every single na index for each "iteration"
         # compute the difference between current and previous iteration, take the absolute value and then average across all na indices
         # To do this, we need to add into the function impute_multiple a way to store this value ^ into a list and then plot
-        imputed_data, conv = vae.impute(data_corrupt = data_missing, max_iter = max_iter)
+        #imputed_data, conv = vae.impute(data_corrupt = data_missing, max_iter = max_iter)
 
-        print(conv) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        iter = list(range(1,max_iter+1))
-        plt.plot(iter, conv, 'ro')
-        plt.axis([0,max_iter+1,0,max(conv)+0.05])
-        plt.ylabel('convergence')
-        plt.show()
+        #print(conv) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        #iter = list(range(1,max_iter+1))
+        #plt.plot(iter, conv, 'ro')
+        #plt.axis([0,max_iter+1,0,max(conv)+0.05])
+        #plt.ylabel('convergence')
+        #plt.show()
 
         # Generate m plausible datasets via impute_multiple() function
 
@@ -119,21 +119,23 @@ if __name__ == '__main__':
                                      batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
 
         # Let's run a for loop where we copy data_missing2 at the beginning and feed that into impute_multiple()
-        m = int(10)
+        m = int(4)
         mult_imp_datasets = []
         mult_convs = []
+        mult_convs_lik = []
         for i in range(m):
             print("Generating plausible dataset", i+1)
 
             data_missing_mult = np.copy(data_missing2)
-            mult_imputed_data, mult_conv = vae_mult.impute_multiple(data_corrupt = data_missing_mult, max_iter = max_iter)
+            mult_imputed_data, mult_conv, mult_conv_lik = vae_mult.impute_multiple(data_corrupt = data_missing_mult, max_iter = max_iter)
 
             # Add to list
             mult_imp_datasets.append(np.copy(mult_imputed_data))
             mult_convs.append(np.copy(mult_conv))
+            mult_convs_lik.append(np.copy(mult_conv_lik))
 
         # Check each plausible dataset is unique
-        mult_imp_datasets[0] != mult_imp_datasets[1] # good!
+        mult_imp_datasets[0] == mult_imp_datasets[1] # good!
 
         print(mult_convs) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
         iter = list(range(1,max_iter+1))
@@ -141,14 +143,29 @@ if __name__ == '__main__':
         plt.axis([0,max_iter+1,0,max(mult_conv[0])+0.1])
         plt.ylabel('convergence')
         plt.show()
+
+        print(mult_convs_lik) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        iter = list(range(1,max_iter+1))
+        plt.plot(iter, mult_convs_lik[0], 'ro')
+        plt.axis([0,max_iter+1,0,max(mult_conv_lik[0])+0.1])
+        plt.ylabel('convergence')
+        plt.show() 
         
         # Single imputation setting
-        data = sc.inverse_transform(data)
-        imputed_data = sc.inverse_transform(imputed_data)
-        ReconstructionError = sum(((imputed_data[na_ind] - data[na_ind])**2)**0.5)/na_count
-        print('Reconstruction error on single imputation (VAE):')
-        print(ReconstructionError)
-        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", imputed_data, delimiter=",") 
+        #data = sc.inverse_transform(data)
+        #imputed_data = sc.inverse_transform(imputed_data)
+        #ReconstructionError = sum(((imputed_data[na_ind] - data[na_ind])**2)**0.5)/na_count
+        #print('Reconstruction error on single imputation (VAE):')
+        #print(ReconstructionError)
+        #np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", imputed_data, delimiter=",") 
+
+        # Export results from single imputation
+        #na_indices_single = pd.DataFrame(
+        #    {'imputed_dataset': imputed_data[na_ind],
+        #     'actual_values': data[na_ind]
+        #    })
+
+        #na_indices_single.to_csv('NA_imputed_values_single_imputation.csv')
 
         # Multiple imputation setting
         # First of all we need to inverse transform all plausible datasets and then compute an average across for our final dataset
@@ -170,5 +187,27 @@ if __name__ == '__main__':
 
         for i in range(m):
             print('Reconstruction error on multiple imputation (VAE) for dataset', i+1, reconstr_error[i])
+
+        # Compute confidence intervals for each NA index
+        na_indices = pd.DataFrame(
+            {'plausible_dataset_1': mult_imp_datasets[0][na_ind],
+             'plausible_dataset_2': mult_imp_datasets[1][na_ind],
+             'plausible_dataset_3': mult_imp_datasets[2][na_ind],
+             'plausible_dataset_4': mult_imp_datasets[3][na_ind],
+             'plausible_dataset_5': mult_imp_datasets[4][na_ind],
+             'plausible_dataset_6': mult_imp_datasets[5][na_ind],
+             'plausible_dataset_7': mult_imp_datasets[6][na_ind],
+             'plausible_dataset_8': mult_imp_datasets[7][na_ind],
+             'plausible_dataset_9': mult_imp_datasets[8][na_ind],
+             'plausible_dataset_10': mult_imp_datasets[9][na_ind],
+             'actual_values': data[na_ind]
+            })
+
+        na_indices.to_csv('NA_imputed_values_m_datasets.csv')
+
+        
+
+
+
 
         

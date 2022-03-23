@@ -215,6 +215,8 @@ class VariationalAutoencoder(object):
         na_ind = np.where(np.isnan(data_miss_val))
         data_miss_val[na_ind] = 0
         convergence = []
+        convergence_loglik = []
+        largest_imp_val = []
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
             ## Here - need a function which passes z_sample into the decoder and obtains the distribution of x_hat
@@ -224,7 +226,7 @@ class VariationalAutoencoder(object):
             # calling x_hat_mean and x_hat_log_sigma_sq actually pulls a random sample from z via re-parametrization trick and then feeds it through the decoder 
             # And then computes the distribution and pulls a sample from this
             # Obtain a random sample from z, x_hat_mean and x_hat_log_sigma_sq given our corrupt data
-            z_sample, x_hat_mean, x_hat_log_sigma_sq = self.sess.run([self.z, self.x_hat_mean, self.x_hat_log_sigma_sq],
+            x_hat_mean, x_hat_log_sigma_sq = self.sess.run([self.x_hat_mean, self.x_hat_log_sigma_sq],
                              feed_dict={self.x: data_miss_val}) 
 
             X_hat_distribution = Normal(loc=x_hat_mean,
@@ -234,13 +236,31 @@ class VariationalAutoencoder(object):
             # Take average of absolute values across all values different between reconstructed data from previous step
             vals = np.abs(x_hat_sample[na_ind] - data_miss_val[na_ind])
             convergence.append(np.mean(vals))
+
+            # monitor log-likelihood for Ymis across iterations
+            # evaluate density of X_hat_distrubution at imputed values
+            # first extract mean and stdev of x_hat at na_ind and compute X_hat_distribution
+            X_hat_distribution_na = Normal(loc = x_hat_mean[na_ind], scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq[na_ind])))
+
+            # Compute log likelihood of X hat distribution from data_miss_val compared to _hat_sample
+            log_likl_na = \
+            -tf.reduce_sum(self.sess.run(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])))
+
+            # Compute sum across all na ind of log likelihood between previous and current iteration
+            sum_log_likl = self.sess.run(log_likl_na)
+            convergence_loglik.append(sum_log_likl)
+
+            # Store the largest value imputed at the NA indices
+            largest_imp_val.append(np.amax(x_hat_sample[na_ind]))
+
+            # Replace na_ind with newly imputed values
             data_miss_val[na_ind] = x_hat_sample[na_ind] 
 
         # after the iterations have run through, you will have 1 of m plausible MI datasets
         data_corrupt[missing_row_ind,:] = data_miss_val
         data_imputed = data_corrupt
 
-        return data_imputed, convergence
+        return data_imputed, convergence, convergence_loglik, largest_imp_val
 
     def test_sampling(self, data_corrupt, max_iter = 10):
         """
