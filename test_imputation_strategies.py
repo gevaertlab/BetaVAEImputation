@@ -1,5 +1,8 @@
 import os
-os.chdir("git_repository/BetaVAEImputation")
+try:
+    os.chdir("git_repository/BetaVAEImputation")
+except FileNotFoundError:
+    pass
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
