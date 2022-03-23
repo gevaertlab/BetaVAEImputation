@@ -78,7 +78,7 @@ if __name__ == '__main__':
         Encoder_hidden2 = hidden_size_1 #6000
 
         # specify number of imputation iterations:
-        ImputeIter = 4 # looks like both strategies converge around 4 iterations
+        ImputeIter = 100 # looks like both strategies converge around 4 iterations
         
         # define dict for network structure:
         network_architecture = \
@@ -119,20 +119,24 @@ if __name__ == '__main__':
                                      batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
 
         # Let's run a for loop where we copy data_missing2 at the beginning and feed that into impute_multiple()
-        m = int(4)
+        m = int(1) # number of imputed datasets
         mult_imp_datasets = []
         mult_convs = []
         mult_convs_lik = []
+        mult_largest_imp_vals = []
+        mult_avg_imp_vals = []
         for i in range(m):
             print("Generating plausible dataset", i+1)
 
             data_missing_mult = np.copy(data_missing2)
-            mult_imputed_data, mult_conv, mult_conv_lik = vae_mult.impute_multiple(data_corrupt = data_missing_mult, max_iter = max_iter)
+            mult_imputed_data, mult_conv, mult_conv_lik, mult_largest_imp_val, mult_avg_imp_val = vae_mult.impute_multiple(data_corrupt = data_missing_mult, max_iter = max_iter)
 
             # Add to list
             mult_imp_datasets.append(np.copy(mult_imputed_data))
             mult_convs.append(np.copy(mult_conv))
             mult_convs_lik.append(np.copy(mult_conv_lik))
+            mult_largest_imp_vals.append(np.copy(mult_largest_imp_val))
+            mult_avg_imp_vals.append(np.copy(mult_avg_imp_val))
 
         # Check each plausible dataset is unique
         mult_imp_datasets[0] == mult_imp_datasets[1] # good!
