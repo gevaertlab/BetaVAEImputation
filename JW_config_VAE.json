@@ -1,0 +1,14 @@
+{
+  "training_epochs": 20,
+  "batch_size":250,
+  "learning_rate": 0.0005,
+  "latent_size": 200,
+  "hidden_size_1": 6000,
+  "hidden_size_2": 2000,
+  "beta": 1,
+  "trial_ind": 1,
+  "data_path": "./data/data_complete.csv", 
+  "corrupt_data_path": "./data/LGGGBM_missing_10perc_trial1.csv",
+  "save_rootpath": "./output/"
+  
+}

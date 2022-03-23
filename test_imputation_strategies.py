@@ -1,5 +1,8 @@
 import os
-os.chdir("git_repository/BetaVAEImputation")
+try:
+    os.chdir("git_repository/BetaVAEImputation")
+except FileNotFoundError:
+    pass
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -16,7 +19,7 @@ import json
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
 tf.reset_default_graph()
-
+config_path = parser.parse_args().config
 
 if __name__ == '__main__':
     
@@ -25,7 +28,7 @@ if __name__ == '__main__':
         #with open(args.config) as f:
         #    config = json.load(f)
 
-        with open("example_config_VAE.json") as f:
+        with open(config_path) as f:
             config = json.load(f)
     
         training_epochs=config["training_epochs"] #250
@@ -41,7 +44,6 @@ if __name__ == '__main__':
         restore_root = config["save_rootpath"]
         trial_ind = config ["trial_ind"]
         rp=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt"
-        
         print("restore path: ", rp)
         
         # LOAD DATA

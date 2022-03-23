@@ -1,5 +1,8 @@
 import os
-os.chdir("git_repository/BetaVAEImputation")
+try:
+    os.chdir("git_repository/BetaVAEImputation")
+except FileNotFoundError:
+    pass
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -12,7 +15,7 @@ import argparse
 import json
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
+parser.add_argument('--config', type=str, default='example_config_VAE.json', help='configuration json file')
 
 if __name__ == '__main__':
     
@@ -92,16 +95,3 @@ if __name__ == '__main__':
 
         saver = tf.train.Saver()
         save_path = saver.save(vae.sess, save_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt")
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
