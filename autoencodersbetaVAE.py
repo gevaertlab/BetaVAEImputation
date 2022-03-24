@@ -5,6 +5,7 @@ Normal = tf.contrib.distributions.Normal
 np.random.seed(0)
 tf.set_random_seed(0)
 
+
 class VariationalAutoencoder(object):
 #"VAE implementation is based on the implementation from  McCoy, J.T.,et al."
 #https://www-sciencedirect-com.stanford.idm.oclc.org/science/article/pii/S2405896318320949"
@@ -329,6 +330,22 @@ class VariationalAutoencoder(object):
         self.losshistory = losshistory
         self.losshistory_epoch = losshistory_epoch
         return self
+
+    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE'):
+        losses = []
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))
+        data_miss_val = np.copy(data_corrupt[missing_row_ind[0], :])
+        true_values_for_missing = data_complete[missing_row_ind[0], :]
+        na_ind = np.where(np.isnan(data_miss_val))
+        data_miss_val[na_ind] = 0
+        for i in range(n_recycles):
+            data_reconstruct = self.reconstruct(data_miss_val)
+            data_miss_val[na_ind] = data_reconstruct[na_ind]
+            if loss == 'RMSE':
+                losses.append(np.sqrt(((true_values_for_missing[na_ind] - data_reconstruct[na_ind])**2).mean()))
+            elif loss == 'MAE':
+                losses.append(np.abs(true_values_for_missing[na_ind] - data_reconstruct[na_ind]).mean())
+        return losses
 
 def next_batch(data,batch_size):
 
