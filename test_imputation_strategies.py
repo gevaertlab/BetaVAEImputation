@@ -129,7 +129,8 @@ if __name__ == '__main__':
             print("Generating plausible dataset", i+1)
 
             data_missing_mult = np.copy(data_missing2)
-            mult_imputed_data, mult_conv, mult_conv_lik, mult_largest_imp_val, mult_avg_imp_val = vae_mult.impute_multiple(data_corrupt = data_missing_mult, max_iter = max_iter)
+            mult_imputed_data, mult_conv, mult_conv_lik, mult_largest_imp_val, mult_avg_imp_val, mean_sigma_sq = \
+                vae_mult.impute_multiple(data_corrupt = data_missing_mult, max_iter = max_iter)
 
             # Add to list
             mult_imp_datasets.append(np.copy(mult_imputed_data))

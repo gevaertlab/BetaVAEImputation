@@ -219,6 +219,7 @@ class VariationalAutoencoder(object):
         convergence_loglik = []
         largest_imp_val = []
         avg_imp_val = []
+        mean_sigma_sq = []
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
             ## Here - need a function which passes z_sample into the decoder and obtains the distribution of x_hat
@@ -237,7 +238,7 @@ class VariationalAutoencoder(object):
             x_hat_sample = self.sess.run(X_hat_distribution.sample())
             # Take average of absolute values across all values different between reconstructed data from previous step
             convergence.append(np.mean(np.abs(x_hat_sample[na_ind] - data_miss_val[na_ind])))
-
+            mean_sigma_sq.append(x_hat_log_sigma_sq.mean())
             # monitor log-likelihood for Ymis across iterations
             # evaluate density of X_hat_distrubution at imputed values
             # first extract mean and stdev of x_hat at na_ind and compute X_hat_distribution
@@ -264,7 +265,7 @@ class VariationalAutoencoder(object):
         data_corrupt[missing_row_ind,:] = data_miss_val
         data_imputed = data_corrupt
 
-        return data_imputed, convergence, convergence_loglik, largest_imp_val, avg_imp_val
+        return data_imputed, convergence, convergence_loglik, largest_imp_val, avg_imp_val, mean_sigma_sq
 
     def test_sampling(self, data_corrupt, max_iter = 10):
         """
@@ -332,6 +333,7 @@ class VariationalAutoencoder(object):
         return self
 
     def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE'):
+        # todo need to calculate the RMSE on the data has been reverse-scaled!
         losses = []
         missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))
         data_miss_val = np.copy(data_corrupt[missing_row_ind[0], :])
