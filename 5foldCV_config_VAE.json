@@ -1,0 +1,15 @@
+{
+    "training_epochs": 250,
+    "batch_size":250,
+    "learning_rate": 0.0005,
+    "latent_size": 200,
+    "hidden_size_1": 6000,
+    "hidden_size_2": 2000,
+    "beta": 1,
+    "trial_ind": 1,
+    "data_path": "./data/5foldCV/LGGGBM_missing_10perc_trial_1_Yobs.csv", 
+    "corrupt_data_path": "./data/5foldCV/LGGGBM_missing_10perc_trial_1_Yobs_CV1.csv",
+    "save_rootpath": "./output/5foldCV/CV1/"
+    
+  }
+  

@@ -1,5 +1,5 @@
 {
-  "training_epochs": 350,
+  "training_epochs": 450,
   "batch_size":250,
   "learning_rate": 0.0005,
   "latent_size": 200,

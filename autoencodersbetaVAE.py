@@ -1,12 +1,26 @@
 import random
 import numpy as np
 import tensorflow as tf
+
 # Normal = tf.contrib.distributions.Normal
 Normal = tf.compat.v1.distributions.Normal
+
+from sklearn.metrics import r2_score
+
 np.random.seed(0)
 tf.random.set_seed(0)
-
 tf.compat.v1.disable_eager_execution()
+
+
+def calculate_losses(true, preds):
+    return {
+        "RMSE": np.sqrt(((true - preds) ** 2).mean()),
+        "MAE": np.abs(true - preds).mean(),
+        "r2_score": r2_score(true, preds)
+
+    }
+
+
 class VariationalAutoencoder(object):
 #"VAE implementation is based on the implementation from  McCoy, J.T.,et al."
 #https://www-sciencedirect-com.stanford.idm.oclc.org/science/article/pii/S2405896318320949"
@@ -112,7 +126,7 @@ class VariationalAutoencoder(object):
             
     def _create_loss_optimizer(self):
 
-        # 1. Reconstruction loss - the negative log probability of of the input under the reconstructed Bernoulli distribution (Bernoulli? should be Gaussian?)
+        # 1. Reconstruction loss - the negative log probability of of the input under the reconstructed Gaussian distribution
         # induced by the decoder in the latent space 
         # Note: if we want to use all observed data, instead of splitting into training and testing, this reconstruction loss/xhat distribution would only
         # consider observed/non missing data - in 119 replace log prob with zero for missing indices?
@@ -246,6 +260,10 @@ class VariationalAutoencoder(object):
         na_ind = np.where(np.isnan(data_miss_val))
         data_miss_val[na_ind] = 0
         convergence = []
+        convergence_loglik = []
+        largest_imp_val = []
+        avg_imp_val = []
+        mean_sigma_sq = []
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
             ## Here - need a function which passes z_sample into the decoder and obtains the distribution of x_hat
@@ -255,7 +273,7 @@ class VariationalAutoencoder(object):
             # calling x_hat_mean and x_hat_log_sigma_sq actually pulls a random sample from z via re-parametrization trick and then feeds it through the decoder 
             # And then computes the distribution and pulls a sample from this
             # Obtain a random sample from z, x_hat_mean and x_hat_log_sigma_sq given our corrupt data
-            z_sample, x_hat_mean, x_hat_log_sigma_sq = self.sess.run([self.z, self.x_hat_mean, self.x_hat_log_sigma_sq],
+            x_hat_mean, x_hat_log_sigma_sq = self.sess.run([self.x_hat_mean, self.x_hat_log_sigma_sq],
                              feed_dict={self.x: data_miss_val}) 
 
             X_hat_distribution = Normal(loc=x_hat_mean,
@@ -263,15 +281,35 @@ class VariationalAutoencoder(object):
 
             x_hat_sample = self.sess.run(X_hat_distribution.sample())
             # Take average of absolute values across all values different between reconstructed data from previous step
-            vals = np.abs(x_hat_sample[na_ind] - data_miss_val[na_ind])
-            convergence.append(np.mean(vals))
+            convergence.append(np.mean(np.abs(x_hat_sample[na_ind] - data_miss_val[na_ind])))
+            mean_sigma_sq.append(x_hat_log_sigma_sq.mean())
+            # monitor log-likelihood for Ymis across iterations
+            # evaluate density of X_hat_distrubution at imputed values
+            # first extract mean and stdev of x_hat at na_ind and compute X_hat_distribution
+            X_hat_distribution_na = Normal(loc = x_hat_mean[na_ind], scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq[na_ind])))
+
+            # Compute log likelihood of X hat distribution from data_miss_val compared to _hat_sample
+            log_likl_na = \
+            -tf.reduce_sum(self.sess.run(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])))
+
+            # Compute sum across all na ind of log likelihood between previous and current iteration
+            sum_log_likl = self.sess.run(log_likl_na)
+            convergence_loglik.append(sum_log_likl)
+
+            # Store the largest value imputed at the NA indices
+            largest_imp_val.append(np.amax(np.abs(x_hat_sample[na_ind])))
+
+            # Store average absolute value of all NA indices (compared to baseline zero)
+            avg_imp_val.append(np.mean(np.abs(x_hat_sample[na_ind])))
+
+            # Replace na_ind with newly imputed values
             data_miss_val[na_ind] = x_hat_sample[na_ind] 
 
         # after the iterations have run through, you will have 1 of m plausible MI datasets
         data_corrupt[missing_row_ind,:] = data_miss_val
         data_imputed = data_corrupt
 
-        return data_imputed, convergence
+        return data_imputed, convergence, convergence_loglik, largest_imp_val, avg_imp_val, mean_sigma_sq
 
     def test_sampling(self, data_corrupt, max_iter = 10):
         """
@@ -338,6 +376,33 @@ class VariationalAutoencoder(object):
         self.losshistory = losshistory
         self.losshistory_epoch = losshistory_epoch
         return self
+
+    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
+        # todo need to calculate the RMSE on the data has been reverse-scaled!
+        losses = []
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))
+        data_miss_val = np.copy(data_corrupt[missing_row_ind[0], :])
+        true_values_for_missing = data_complete[missing_row_ind[0], :]
+        na_ind = np.where(np.isnan(data_miss_val))
+        data_miss_val[na_ind] = 0
+        for i in range(n_recycles):
+            data_reconstruct = self.reconstruct(data_miss_val)
+            data_miss_val[na_ind] = data_reconstruct[na_ind]
+            if scaler is not None:
+                predictions = np.copy(scaler.inverse_transform(data_reconstruct)[na_ind])
+                target_values = np.copy(scaler.inverse_transform(true_values_for_missing)[na_ind])
+            else:
+                predictions = np.copy(data_reconstruct[na_ind])
+                target_values = np.copy(true_values_for_missing[na_ind])
+
+            if loss == 'RMSE':
+                losses.append(np.sqrt(((target_values - predictions)**2).mean()))
+            elif loss == 'MAE':
+                losses.append(np.abs(target_values - predictions).mean())
+            elif loss =='all':
+                multi_loss_dict = calculate_losses(target_values, predictions)
+                losses.append(multi_loss_dict)
+        return losses
 
 def next_batch(data,batch_size):
 

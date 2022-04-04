@@ -1,12 +1,8 @@
 import os
-try:
-    os.chdir("git_repository/BetaVAEImputation")
-except FileNotFoundError:
-    pass
-
+os.chdir("git_repository/BetaVAEImputation")
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from autoencodersbetaVAE import VariationalAutoencoder
 import pandas as pd
 import random
@@ -16,29 +12,19 @@ import argparse
 import json
 
 parser = argparse.ArgumentParser()
-
 parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
-print(tf.config.list_physical_devices(
-    device_type='GPU'
-))
-physical_devices = tf.config.list_physical_devices('GPU')
-tf.config.set_visible_devices(physical_devices[-1], 'GPU')
-logical_devices = tf.config.list_logical_devices('GPU')
-# tf.config.set_visible_devices([], 'GPU') # disable GPU
-
-parser.add_argument('--config', type=str, default='example_config_VAE.json', help='configuration json file')
-
 
 if __name__ == '__main__':
-
-        # args = parser.parse_args()
-        # with open(args.config) as f:
-        #     config = json.load(f)
+    
+        args = parser.parse_args()
+        #with open(args.config) as f:
+        #    config = json.load(f)
 
         # For running locally
-        with open("example_config_VAE.json") as f:
-           config = json.load(f)
+        with open("5foldCV_config_VAE.json") as f:
+            config = json.load(f)
 
+    
         training_epochs=config["training_epochs"] #250
         batch_size=config["batch_size"] #250
         learning_rate=config["learning_rate"] #0.0005
@@ -49,6 +35,9 @@ if __name__ == '__main__':
         data_path =   config["data_path"]     
         corrupt_data_path = config["corrupt_data_path"]
         save_root = config["save_rootpath"]
+
+        print("Fitting cross validation dataset", corrupt_data_path)
+        print("Trained model saved in", save_root)
         
         # Read in complete data
         data = pd.read_csv(data_path).values
@@ -73,9 +62,6 @@ if __name__ == '__main__':
         # Re-assign the missing values to the same positions as before
         data_missing[na_ind] = np.nan
         del data_missing_complete
-
-        # Remove strings and metadata from first few columns in data
-        data = np.delete(data,np.s_[0:4], axis=1)
         data = sc.transform(data)
 
         # VAE network size:
@@ -104,19 +90,7 @@ if __name__ == '__main__':
         vae = vae.train(data=data_missing,
                         training_epochs=training_epochs)
 
-        # What does x_hat_distribution look like?
-        tmp = vae.test_sampling(data_corrupt = data_missing)
-        # Looks like this is a Tensor, not a dataframe
-
-        # Test updates to VAE object class
-        # specify number of imputation iterations:
-        ImputeIter = 3
-
-        data_imputed_sample = vae.impute(data_corrupt = data_missing, max_iter = ImputeIter)
-        
-        try:
-            saver = tf.train.Saver()
-        except:
-            saver = tf.compat.v1.train.Saver()
-
+        #save_root = 'output/5foldCV/CV3/'
+        saver = tf.train.Saver()
         save_path = saver.save(vae.sess, save_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt")
+        
