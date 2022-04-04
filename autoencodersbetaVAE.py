@@ -226,8 +226,13 @@ class VariationalAutoencoder(object):
         convergence = []
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
+<<<<<<< HEAD
             previous_missing = np.copy(data_miss_val)
             data_reconstruct = self.reconstruct(data_miss_val)
+=======
+        
+            data_reconstruct = self.reconstruct(data_miss_val) # datat_reconstruct.shape = (n_missing, n_features)
+>>>>>>> master
             if i != 0:
                 print(data_reconstruct[na_ind] - data_miss_val[na_ind])
             # Take average of absolute values across all values different between reconstructed data from previous step
@@ -378,13 +383,13 @@ class VariationalAutoencoder(object):
         return self
 
     def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
-        # todo need to calculate the RMSE on the data has been reverse-scaled!
+
         losses = []
-        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))
-        data_miss_val = np.copy(data_corrupt[missing_row_ind[0], :])
-        true_values_for_missing = data_complete[missing_row_ind[0], :]
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))[0]
+        data_miss_val = np.copy(data_corrupt[missing_row_ind, :])
+        true_values_for_missing = data_complete[missing_row_ind, :]
         na_ind = np.where(np.isnan(data_miss_val))
-        data_miss_val[na_ind] = 0
+        data_miss_val[na_ind] = 0 # todo should the zero be imputed after the scaling is already done?
         for i in range(n_recycles):
             data_reconstruct = self.reconstruct(data_miss_val)
             data_miss_val[na_ind] = data_reconstruct[na_ind]

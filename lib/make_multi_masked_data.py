@@ -24,6 +24,7 @@ n_cols_to_null = int(n_cols * prop_missing_features)
 
 def get_random_col_selection():
     return np.random.choice(range(n_cols), n_cols_to_null, replace=False)
+
 train_data = []
 for _ in range(n_splits):
     random_rows  = np.random.choice(range(len(data)), n_rows_to_add_null, replace=False)

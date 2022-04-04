@@ -1,5 +1,9 @@
 import os
-# os.chdir("git_repository/BetaVAEImputation")
+try:
+        os.chdir("git_repository/BetaVAEImputation")
+except FileNotFoundError:
+        pass
+
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -14,9 +18,10 @@ import argparse
 import json
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
-tf.compat.v1.disable_eager_execution()
-tf.compat.v1.reset_default_graph()
+
+parser.add_argument('--config', type=str, default='example_config_VAE.json', help='configuration json file')
+tf.reset_default_graph()
+
 
 
 if __name__ == '__main__':
@@ -108,13 +113,13 @@ if __name__ == '__main__':
             sess.run(init) #execute init
             #print the random values that we sample
             print(sess.run(z_space, 
-                             feed_dict={x: data}))
+                             feed_dict={'x': data}))
 
 
         ## Now we go into autoencodersbetaVAE.py and try and deconstruct the impute function
         max_iter = ImputeIter
 
-        data_impute = vae.impute(data_corrupt = data_missing, max_iter = ImputeIter)
+        data_impute, convergence = vae.impute(data_corrupt = data_missing, max_iter = ImputeIter)
         
         data = sc.inverse_transform(data)
         data_impute = sc.inverse_transform(data_impute)
@@ -122,6 +127,8 @@ if __name__ == '__main__':
         print('Reconstruction error (VAE):')
         print(ReconstructionError)
         np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",")
+        # np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",")
+
         
     
         
