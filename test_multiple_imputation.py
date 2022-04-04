@@ -153,8 +153,25 @@ if __name__ == '__main__':
         iter = list(range(1,max_iter+1))
         plt.plot(iter, mult_convs_lik[0], 'ro')
         plt.axis([0,max_iter+1,0,max(mult_conv_lik[0])+0.1])
-        plt.ylabel('convergence')
+        plt.ylabel('negative log likelihood')
         plt.show() 
+
+        print(mult_largest_imp_vals) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        iter = list(range(1,max_iter+1))
+        plt.plot(iter, mult_largest_imp_vals[0], 'ro')
+        plt.axis([0,max_iter+1,0,max(mult_largest_imp_vals[0])+0.1])
+        plt.ylabel('largest imputed value (abs val)')
+        plt.show()  
+
+        print(mult_avg_imp_vals) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        iter = list(range(1,max_iter+1))
+        plt.plot(iter, mult_avg_imp_vals[0], 'ro')
+        plt.axis([0,max_iter+1,0,max(mult_avg_imp_vals[0])+0.1])
+        plt.ylabel('largest imputed value (abs val)')
+        plt.show()    
+
+        if max_iter==100:
+            np.savetxt('./MI_dataset_100_iterations_LGGGBM_trial1_10prctmissing.csv', mult_imp_datasets[0], delimiter=",")
         
         # Single imputation setting
         #data = sc.inverse_transform(data)
