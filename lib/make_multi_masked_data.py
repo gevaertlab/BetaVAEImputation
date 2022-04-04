@@ -1,6 +1,13 @@
 import numpy as np
 import pandas as pd
 
+"""
+This module creates multiple repeats of the same dataset - each one with 
+different random missing data.
+This is a very inefficient way to do this and a much better way would be 
+to create a pre-processing step that masks a random proportion of the data 
+with each batch.
+"""
 data_path =  "../data/data_complete.csv"
 # corrupt_data_path = "./data/LGGGBM_missing_10perc_trial1.csv"
 

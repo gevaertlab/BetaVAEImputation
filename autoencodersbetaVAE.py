@@ -1,10 +1,18 @@
 import random
 import numpy as np
 import tensorflow as tf
+from sklearn.metrics import r2_score
 Normal = tf.contrib.distributions.Normal
 np.random.seed(0)
 tf.set_random_seed(0)
 
+def calculate_losses(true, preds):
+    return {
+        "RMSE": np.sqrt(((true - preds) ** 2).mean()),
+        "MAE": np.abs(true - preds).mean(),
+        "r2_score": r2_score(true, preds)
+
+    }
 
 class VariationalAutoencoder(object):
 #"VAE implementation is based on the implementation from  McCoy, J.T.,et al."
@@ -332,7 +340,7 @@ class VariationalAutoencoder(object):
         self.losshistory_epoch = losshistory_epoch
         return self
 
-    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE'):
+    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
         # todo need to calculate the RMSE on the data has been reverse-scaled!
         losses = []
         missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))
@@ -343,10 +351,20 @@ class VariationalAutoencoder(object):
         for i in range(n_recycles):
             data_reconstruct = self.reconstruct(data_miss_val)
             data_miss_val[na_ind] = data_reconstruct[na_ind]
+            if scaler is not None:
+                predictions = np.copy(scaler.inverse_transform(data_reconstruct)[na_ind])
+                target_values = np.copy(scaler.inverse_transform(true_values_for_missing)[na_ind])
+            else:
+                predictions = np.copy(data_reconstruct[na_ind])
+                target_values = np.copy(true_values_for_missing[na_ind])
+
             if loss == 'RMSE':
-                losses.append(np.sqrt(((true_values_for_missing[na_ind] - data_reconstruct[na_ind])**2).mean()))
+                losses.append(np.sqrt(((target_values - predictions)**2).mean()))
             elif loss == 'MAE':
-                losses.append(np.abs(true_values_for_missing[na_ind] - data_reconstruct[na_ind]).mean())
+                losses.append(np.abs(target_values - predictions).mean())
+            elif loss =='all':
+                multi_loss_dict = calculate_losses(target_values, predictions)
+                losses.append(multi_loss_dict)
         return losses
 
 def next_batch(data,batch_size):

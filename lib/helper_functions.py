@@ -2,9 +2,11 @@ import os
 import json
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
 from autoencodersbetaVAE import VariationalAutoencoder
 
-def apply_scaler(data, data_missing):
+
+def apply_scaler(data, data_missing, return_scaler=False):
     non_missing_row_ind = np.where(np.isfinite(np.sum(data_missing, axis=1)))
     na_ind = np.where(np.isnan(data_missing))
     sc = StandardScaler()
@@ -16,7 +18,10 @@ def apply_scaler(data, data_missing):
     data_missing[na_ind] = np.nan
     del data_missing_complete
     data = sc.transform(data)
-    return data, data_missing
+    if return_scaler:
+        return data, data_missing, sc
+    else:
+        return data, data_missing
 
 def load_saved_model(config_path = 'JW_config_VAE.json'):
     n_col = 17175
