@@ -1,5 +1,8 @@
 import os
-os.chdir("git_repository/BetaVAEImputation")
+try:
+        os.chdir("git_repository/BetaVAEImputation")
+except FileNotFoundError:
+        pass
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -14,7 +17,7 @@ import argparse
 import json
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
+parser.add_argument('--config', type=str, default='example_config_VAE.json', help='configuration json file')
 tf.reset_default_graph()
 
 
@@ -95,14 +98,14 @@ if __name__ == '__main__':
         ## Now we go into autoencodersbetaVAE.py and try and deconstruct the impute function
         max_iter = ImputeIter
 
-        data_impute = vae.impute(data_corrupt = data_missing, max_iter = ImputeIter)
+        data_impute, convergence = vae.impute(data_corrupt = data_missing, max_iter = ImputeIter)
         
         data = sc.inverse_transform(data)
         data_impute = sc.inverse_transform(data_impute)
         ReconstructionError = sum(((data_impute[na_ind] - data[na_ind])**2)**0.5)/na_count
         print('Reconstruction error (VAE):')
         print(ReconstructionError)
-        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",") 
+        # np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", data_impute, delimiter=",")
         
     
         
