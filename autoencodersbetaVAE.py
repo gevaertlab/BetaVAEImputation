@@ -263,13 +263,21 @@ class VariationalAutoencoder(object):
 
             ## To calculate acceptance probability, we need to calculate various metrics at each imputation iteration
             # Store z_samp from this iteration
-            if i > 0:
+            if i == 0:
+                # First iteration you must set z_samp to the first sampling
+                z_s_minus_1 = z_samp
+                x_hat_mean_s_minus_1 = x_hat_mean
+                x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
+
+                # Replace na_ind with x_hat_sample from first sampling
+                data_miss_val[na_ind] = x_hat_sample[na_ind] 
+            else:
                 # Define distributions
                 z_Distribution = Normal(loc = z_mean, scale = tf.sqrt(tf.exp(z_log_sigma_sq)))
                 z_prior = Normal(loc = np.zeros(z_mean.shape), scale = np.ones(z_mean.shape))
                 X_hat_distr_s_minus_1 = Normal(loc = x_hat_mean_s_minus_1, scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
 
-                # Calculate log probability for each sample
+                # Calculate log likelihood for previous and new sample to calculate acceptance probability with
                 log_q_z_star = self.sess.run(tf.reduce_sum(self.sess.run(z_Distribution.log_prob(z_samp))))
                 log_q_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(z_Distribution.log_prob(z_s_minus_1))))
                 log_p_z_star = self.sess.run(tf.reduce_sum(self.sess.run(z_prior.log_prob(z_samp)))) 
@@ -277,11 +285,12 @@ class VariationalAutoencoder(object):
                 log_p_Y_z_star = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distribution.log_prob(data_miss_val)))) 
                 log_p_Y_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distr_s_minus_1.log_prob(data_miss_val))))
 
+                # Acceptance probability of sample z_star
                 a_prob = self.sess.run(tf.exp(log_p_Y_z_star+log_p_z_star+log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1+log_p_z_s_minus_1+log_q_z_star)))
 
                 # If we accept the new sample, set (s-1) z-sample as the new previous sampling
                 if np.random.uniform() < a_prob:
-                    print("new sample accepted")
+                    print("new sample accepted with acceptance probability", a_prob)
                     z_s_minus_1 = z_samp
                     x_hat_mean_s_minus_1 = x_hat_mean
                     x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
@@ -289,13 +298,7 @@ class VariationalAutoencoder(object):
                     # Replace na_ind with x_hat_sample from this z_sampling
                     data_miss_val[na_ind] = x_hat_sample[na_ind] # Otherwise retain Ymis(s-1)
                 else:
-                    print("new sample rejected")
-            else: 
-                # First iteration you must set z_samp to the first sampling
-                z_s_minus_1 = z_samp
-                x_hat_mean_s_minus_1 = x_hat_mean
-                x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq 
-
+                    print("new sample rejected with acceptance probability", a_prob)
             
 
         # after the iterations have run through, you will have 1 of m plausible MI datasets
