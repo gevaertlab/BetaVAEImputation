@@ -53,7 +53,7 @@ if __name__ == '__main__':
         conv_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/convergence_plots/"
         na_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/NA_indices/"
         
-	# if these directories don't exist, make them
+	    # if these directories don't exist, make them
         os.makedirs(imp_out, exist_ok=True)
         os.makedirs(conv_out, exist_ok=True)
         os.makedirs(na_out, exist_ok=True)
@@ -111,13 +111,13 @@ if __name__ == '__main__':
                                      batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
 
         # Let's run a for loop where we copy data_missing2 at the beginning and feed that into impute_multiple()
-        print("Beginning imputation of", m, "plausible dataset(s) with", max_iter, "imputation iterations")
         m = int(1) # number of imputed datasets
         mult_imp_datasets = []
         mult_convs = []
         mult_convs_lik = []
         mult_largest_imp_vals = []
         mult_avg_imp_vals = []
+        print("Beginning imputation of", m, "plausible dataset(s) with", max_iter, "imputation iterations")
         for i in range(m):
             print("Generating plausible dataset", i+1)
 
