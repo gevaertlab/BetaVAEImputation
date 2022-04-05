@@ -1,51 +1,50 @@
+import datetime
+import pickle
 import numpy as np
 from tensorflow import keras
-import pandas as pd
-from lib.helper_functions import apply_scaler
-from lib.helper_functions import load_saved_model
 
-class CustomCallback(keras.callbacks.Callback):
-    # call backs probably can't be used to modify the dataset
-    def on_train_batch_begin(self, batch, logs=None):
-        keys = list(logs.keys())
-        print("...Training: start of batch {}; got log keys: {}".format(batch, keys))
+from lib.helper_functions import get_scaled_data
+from betaVAEv2 import load_model_v2
 
-def load_data():
-    x = pd.read_csv('../data/LGGGBM_missing_10perc_trial1.csv')
-    y = pd.read_csv('../data/data_complete.csv')
-    x, y = apply_scaler(y, x, return_scaler=False)
-    pass
 
-def load_y():
-    df =
-    pass
+
+# def load_data():
+#     x = pd.read_csv('../data/LGGGBM_missing_10perc_trial1.csv')
+#     y = pd.read_csv('../data/data_complete.csv')
+#     x, y = apply_scaler(y, x, return_scaler=False)
+#     return x, y
+
+
 
 
 
 class DataGenerator(keras.utils.Sequence):
-    def __init__(self, batchSize, prop_missing_patients=0.2, prop_missing_features=0.1): # you can add parameters here
+    def __init__(self, x_train, y_train, batchSize, prop_missing_patients=0.2, prop_missing_features=0.1): # you can add parameters here
         self.batchSize = batchSize
-        self.x_train, self.y_train = load_data()
-        self.n_cols  = self.x_train.shape[1]
-        self.n_rows = self.x_train.shape[0]
+        self.x_train = x_train
+        self.y_train = y_train
+        self.n_cols  = self.x_train.shape[-1]
+        self.n_rows = self.x_train.shape[-2]
         self.n_rows_to_add_null = int(len(self.x_train) * prop_missing_patients)
         self.n_cols_to_null = int(self.n_cols * prop_missing_features)
-        self.x_train = self.change_mask_and_shuffle()
+        self.change_mask_and_shuffle()
+        bp=True
+        print(f'x_train.shape;', self.x_train.shape)
 
     def __len__(self):
-        return self.xData.shape[0]//self.batchSize
+        return self.n_rows//self.batchSize
 
     def __getitem__(self, index):
-        return self.x_train[index*self.batchSize:(index+1)*self.batchSize:]
+        return self.x_train[index*self.batchSize:(index+1)*self.batchSize:], self.y_train[index*self.batchSize:(index+1)*self.batchSize:]
 
     def on_epoch_end(self):
-        self.x_train = self.change_mask_and_shuffle() # change your data here
+        self.change_mask_and_shuffle() # change your data here
 
     def get_random_col_selection(self):
         return np.random.choice(range(self.n_cols), self.n_cols_to_null, replace=False)
 
     def shuffle(self):
-        shuffle_index = np.random.shuffle(np.arange(self.n_rows))
+        shuffle_index = np.random.choice(range(self.n_rows), self.n_rows, replace=False)
         self.x_train = self.x_train[shuffle_index]
         self.y_train = self.y_train[shuffle_index]
 
@@ -112,12 +111,22 @@ class DataGenerator(keras.utils.Sequence):
 #         return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
 
 if __name__ == "__main__":
+
+    data, data_missing = get_scaled_data()
+    # n_row = data.shape[1]
     # generator should return a sample of
-    training_generator = DataGenerator(batchSize=)
+    training_generator = DataGenerator(x_train=data_missing, y_train=np.copy(data_missing), batchSize=250)
     # validation_generator = DataGenerator(partition['validation'], labels, **params)
     # Train model on dataset
-    model.fit_generator(generator=training_generator,
+    model = load_model_v2()
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0005, clipnorm=1.0))
+    history = model.fit(training_generator,
                         # validation_data=validation_generator,
                         use_multiprocessing=True,
-                        workers=4)
-    pass
+                        workers=4, epochs=100)
+    with open('output/masked_train_history_dict.pickle', 'wb') as file_handle:
+        pickle.dump(history.history, file_handle)
+    decoder_save_path = f"output/masked_{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_decoder.keras"
+    encoder_save_path = f"output/masked_{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_encoder.keras"
+    model.encoder.save(encoder_save_path)
+    model.decoder.save(decoder_save_path)
