@@ -38,19 +38,28 @@ if __name__ == '__main__':
         hidden_size_1=config["hidden_size_1"]
         hidden_size_2=config["hidden_size_2"]
         beta=config["beta"]   
+
+        max_iter = config["n_iterations"]
             
-        data_path =   config["data_path"]     
+        data_path = config["data_path"]     
         corrupt_data_path = config["corrupt_data_path"]
         restore_root = config["save_rootpath"]
         trial_ind = config ["trial_ind"]
         rp=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt"
         print("restore path: ", rp)
 
+        # Define output directories for convergence metrics, imputed datasets and NA index statistics
         imp_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/imputed_datasets/"
         conv_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/convergence_plots/"
         na_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/NA_indices/"
         
+	# if these directories don't exist, make them
+        os.makedirs(imp_out, exist_ok=True)
+        os.makedirs(conv_out, exist_ok=True)
+        os.makedirs(na_out, exist_ok=True)
+
         # LOAD DATA
+        print("Loading data in...")
         data= pd.read_csv(data_path).values
         data_missing = pd.read_csv(corrupt_data_path).values
 
@@ -60,6 +69,7 @@ if __name__ == '__main__':
         na_ind = np.where(np.isnan(data_missing))
         na_count= len(na_ind[0])
        
+        print("Scaling data...")
         sc = StandardScaler()
         data_missing_complete = np.copy(data_missing[non_missing_row_ind[0],:])
         sc.fit(data_missing_complete)
@@ -81,9 +91,6 @@ if __name__ == '__main__':
         Encoder_hidden1 = hidden_size_2 #2000
         Encoder_hidden2 = hidden_size_1 #6000
 
-        # specify number of imputation iterations:
-        ImputeIter = 100 # looks like both strategies converge around 4 iterations
-        
         # define dict for network structure:
         network_architecture = \
             dict(n_hidden_recog_1=Encoder_hidden1, # 1st layer encoder neurons
@@ -94,17 +101,17 @@ if __name__ == '__main__':
                  n_z=latent_size)  # dimensionality of latent space
 
         
-        ## Now we go into autoencodersbetaVAE.py and try and deconstruct the impute function
-        max_iter = ImputeIter
-
         # Generate m plausible datasets via impute_multiple() function
 
+        print("Reading in trained model...")
+        print("Training epochs:", training_epochs, "batch size:", batch_size, "learning rate:", learning_rate, "beta:", beta, "corrupt data path:", corrupt_data_path)
         # Let's do the same with multiple imputation
         vae_mult = VariationalAutoencoder(network_architecture,
                                      learning_rate=learning_rate, 
                                      batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
 
         # Let's run a for loop where we copy data_missing2 at the beginning and feed that into impute_multiple()
+        print("Beginning imputation of", m, "plausible dataset(s) with", max_iter, "imputation iterations")
         m = int(1) # number of imputed datasets
         mult_imp_datasets = []
         mult_convs = []
@@ -127,7 +134,7 @@ if __name__ == '__main__':
         # Check each plausible dataset is unique
         mult_imp_datasets[0] == mult_imp_datasets[1] # good!
 
-        print(mult_convs) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        print("Difference between previous iteration NA values and current:", mult_convs) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
         for i in range(m):
             iter = list(range(1,max_iter+1))
             plt.plot(iter, mult_convs[i], 'ro')
@@ -136,7 +143,7 @@ if __name__ == '__main__':
             plt.savefig(conv_out+'Difference_in_previous_iteration'+'_dataset_'+str(i+1)+'.png')
             plt.close()
 
-        print(mult_convs_lik) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        print("Likelihood at NA indices:", mult_convs_lik) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
         for i in range(m):
             iter = list(range(1,max_iter+1))
             plt.plot(iter, mult_convs_lik[i], 'ro')
@@ -145,7 +152,7 @@ if __name__ == '__main__':
             plt.savefig(conv_out+'Negative_log_likelihood'+'_dataset_'+str(i+1)+'.png') 
             plt.close()
 
-        print(mult_largest_imp_vals) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        print("Largest imputed values at each iteration:", mult_largest_imp_vals) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
         for i in range(m):
             iter = list(range(1,max_iter+1))
             plt.plot(iter, mult_largest_imp_vals[i], 'ro')
@@ -155,7 +162,7 @@ if __name__ == '__main__':
             plt.close()
         
 
-        print(mult_avg_imp_vals) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        print("Average imputed values at each iteration:", mult_avg_imp_vals) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
         for i in range(m):
             iter = list(range(1,max_iter+1))
             plt.plot(iter, mult_avg_imp_vals[i], 'ro')
@@ -209,9 +216,3 @@ if __name__ == '__main__':
 
         na_indices.to_csv(na_out+'NA_imputed_values_m_datasets.csv')
 
-        
-
-
-
-
-        
