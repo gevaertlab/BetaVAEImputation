@@ -341,6 +341,9 @@ class VariationalAutoencoder(object):
         return self
 
     def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
+        """
+        data_corrupt and data_complete should both be scaled to use this function
+        """
         losses = []
         missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))[0]
         data_miss_val = np.copy(data_corrupt[missing_row_ind, :])
