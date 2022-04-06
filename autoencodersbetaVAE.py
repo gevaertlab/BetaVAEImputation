@@ -2,10 +2,18 @@ import random
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.ops.gen_math_ops import exp
+from sklearn.metrics import r2_score
 Normal = tf.contrib.distributions.Normal
 np.random.seed(0)
 tf.set_random_seed(0)
 
+def calculate_losses(true, preds):
+    return {
+        "RMSE": np.sqrt(((true - preds) ** 2).mean()),
+        "MAE": np.abs(true - preds).mean(),
+        "r2_score": r2_score(true, preds)
+
+    }
 
 class VariationalAutoencoder(object):
 #"VAE implementation is based on the implementation from  McCoy, J.T.,et al."
