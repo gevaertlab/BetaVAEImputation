@@ -145,8 +145,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
             z_mean, z_log_var, z = self.encoder(x)
             if self.proba_output:
                 # output = self.decoder(z)
-                tf.print(z_mean)
-                tf.print(z_log_var)
+                # tf.print(z_mean[0])
+                # tf.print(z_log_var[0])
                 # tf.print(len(output))
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder(z)
                 reconstruction_loss = self.mvn_neg_ll(y, (x_hat_mean, x_hat_log_sigma_sq))
@@ -179,6 +179,31 @@ class VariationalAutoencoderV2(tf.keras.Model):
             return x_hat_mean
         else:
             return self.decoder(z_mean)
+
+    def reconstruct(self, data, sample = 'mean'):
+        z_mean, z_log_var, z = self.encoder(data)
+        if sample == 'sample':
+            x_hat_mu, x_hat_log_var = self.decoder(z)
+        else:
+            x_hat_mu, x_hat_log_var = self.decoder(z_mean)
+        return x_hat_mu # todo consider whether it should sample from x_hat_mu here
+
+
+    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE'):
+        losses = []
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))
+        data_miss_val = np.copy(data_corrupt[missing_row_ind[0], :])
+        true_values_for_missing = data_complete[missing_row_ind[0], :]
+        na_ind = np.where(np.isnan(data_miss_val))
+        data_miss_val[na_ind] = 0
+        for i in range(n_recycles):
+            data_reconstruct = self.reconstruct(data_miss_val)
+            data_miss_val[na_ind] = data_reconstruct[na_ind]
+            if loss == 'RMSE':
+                losses.append(np.sqrt(((true_values_for_missing[na_ind] - data_reconstruct[na_ind])**2).mean()))
+            elif loss == 'MAE':
+                losses.append(np.abs(true_values_for_missing[na_ind] - data_reconstruct[na_ind]).mean())
+        return losses
 
 def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
                   decoder_path='output/20220405-14:37:31_decoder.keras',

@@ -1,16 +1,34 @@
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+import pandas as pd
 import tensorflow as tf
 from betaVAEv2 import VariationalAutoencoderV2, Sampling, network_architecture
 from lib.helper_functions import get_scaled_data
 
+def evaluate_model_v2(model):
+    data = pd.read_csv('../data/data_complete.csv')
+    data_missing = pd.read_csv('../data/LGGGBM_missing_10perc_trial1.csv')
+    non_missing_row_ind = np.where(np.isfinite(np.sum(data_missing, axis=1)))
+    na_ind = np.where(np.isnan(data_missing))
+    sc = StandardScaler()
+    data_missing_complete = np.copy(data_missing[non_missing_row_ind[0], :])
+    sc.fit(data_missing_complete)
+    data_missing[na_ind] = 0
+    data_missing = sc.transform(data_missing)
+    del data_missing_complete
+    data = np.array(np.copy(data[:,4:]),dtype='float64')
+    losses = model.evaluate_on_true(data_missing, data, n_recycles=6, loss='RMSE')
+    bp=True
 
 if __name__=="__main__":
 
-    encoder_path = 'output/20220405-14:37:31_encoder.keras'
-    decoder_path = 'output/20220405-14:37:31_decoder.keras'
+    encoder_path = '../output/masked_20220406-07:32:09_encoder.keras'
+    decoder_path = '../output/masked_20220406-07:32:09_decoder.keras'
     encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
     decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
-    data, data_missing = get_scaled_data()
-    n_row = data.shape[1]
-    network_architecture['n_input']=n_row
-    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=1, pretrained_encoder=encoder,
+
+    model = VariationalAutoencoderV2(network_architecture=network_architecture, beta=1, pretrained_encoder=encoder,
                                    pretrained_decoder=decoder)
+
+    model.compile()
+    evaluate_model_v2(model)

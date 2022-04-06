@@ -63,7 +63,7 @@ if __name__ == "__main__":
     training_generator = DataGenerator(x_train=data_missing, y_train=np.copy(data_missing), batchSize=250)
     model = load_model_v2(load_pretrained=False)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.00005, clipnorm=1.0))
-    history = model.fit(training_generator, use_multiprocessing=True, workers=4, epochs=100)
+    history = model.fit(training_generator, use_multiprocessing=True, workers=4, epochs=350)
     with open('output/masked_train_history_dict.pickle', 'wb') as file_handle:
         pickle.dump(history.history, file_handle)
     decoder_save_path = f"output/masked_{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_decoder.keras"
