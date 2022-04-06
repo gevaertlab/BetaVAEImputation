@@ -20,12 +20,12 @@ parser.add_argument('--config', type=str, default='example_config_VAE.json', hel
 if __name__ == '__main__':
     
         args = parser.parse_args()
-        with open(args.config) as f:
-            config = json.load(f)
+        #with open(args.config) as f:
+        #    config = json.load(f)
 
         # For running locally
-        #with open("example_config_VAE.json") as f:
-        #    config = json.load(f)
+        with open("example_config_VAE.json") as f:
+            config = json.load(f)
 
     
         training_epochs=config["training_epochs"] #250

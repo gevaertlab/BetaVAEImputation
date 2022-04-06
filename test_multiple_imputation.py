@@ -28,7 +28,7 @@ if __name__ == '__main__':
         #with open(args.config) as f:
         #    config = json.load(f)
 
-        with open(config_path) as f:
+        with open("example_config_VAE.json") as f:
             config = json.load(f)
     
         training_epochs=config["training_epochs"] #250
@@ -38,15 +38,28 @@ if __name__ == '__main__':
         hidden_size_1=config["hidden_size_1"]
         hidden_size_2=config["hidden_size_2"]
         beta=config["beta"]   
+
+        max_iter = config["n_iterations"]
             
-        data_path =   config["data_path"]     
+        data_path = config["data_path"]     
         corrupt_data_path = config["corrupt_data_path"]
         restore_root = config["save_rootpath"]
         trial_ind = config ["trial_ind"]
         rp=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt"
         print("restore path: ", rp)
+
+        # Define output directories for convergence metrics, imputed datasets and NA index statistics
+        imp_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/imputed_datasets/"
+        conv_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/convergence_plots/"
+        na_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/NA_indices/"
         
+	    # if these directories don't exist, make them
+        os.makedirs(imp_out, exist_ok=True)
+        os.makedirs(conv_out, exist_ok=True)
+        os.makedirs(na_out, exist_ok=True)
+
         # LOAD DATA
+        print("Loading data in...")
         data= pd.read_csv(data_path).values
         data_missing = pd.read_csv(corrupt_data_path).values
 
@@ -56,6 +69,7 @@ if __name__ == '__main__':
         na_ind = np.where(np.isnan(data_missing))
         na_count= len(na_ind[0])
        
+        print("Scaling data...")
         sc = StandardScaler()
         data_missing_complete = np.copy(data_missing[non_missing_row_ind[0],:])
         sc.fit(data_missing_complete)
@@ -77,9 +91,6 @@ if __name__ == '__main__':
         Encoder_hidden1 = hidden_size_2 #2000
         Encoder_hidden2 = hidden_size_1 #6000
 
-        # specify number of imputation iterations:
-        ImputeIter = 100 # looks like both strategies converge around 4 iterations
-        
         # define dict for network structure:
         network_architecture = \
             dict(n_hidden_recog_1=Encoder_hidden1, # 1st layer encoder neurons
@@ -88,31 +99,12 @@ if __name__ == '__main__':
                  n_hidden_gener_2=Decoder_hidden2, # 2nd layer decoder neurons
                  n_input=n_row, # data input size
                  n_z=latent_size)  # dimensionality of latent space
-        
-        # initialise VAE:
-        #vae = VariationalAutoencoder(network_architecture,
-        #                             learning_rate=learning_rate, 
-        #                             batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
 
         
-        ## Now we go into autoencodersbetaVAE.py and try and deconstruct the impute function
-        max_iter = ImputeIter
-
-        # How can we look at the convergence of these random samples?
-        # What we can do is look at the location of every single na index for each "iteration"
-        # compute the difference between current and previous iteration, take the absolute value and then average across all na indices
-        # To do this, we need to add into the function impute_multiple a way to store this value ^ into a list and then plot
-        #imputed_data, conv = vae.impute(data_corrupt = data_missing, max_iter = max_iter)
-
-        #print(conv) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        #iter = list(range(1,max_iter+1))
-        #plt.plot(iter, conv, 'ro')
-        #plt.axis([0,max_iter+1,0,max(conv)+0.05])
-        #plt.ylabel('convergence')
-        #plt.show()
-
         # Generate m plausible datasets via impute_multiple() function
 
+        print("Reading in trained model...")
+        print("Training epochs:", training_epochs, "batch size:", batch_size, "learning rate:", learning_rate, "beta:", beta, "corrupt data path:", corrupt_data_path)
         # Let's do the same with multiple imputation
         vae_mult = VariationalAutoencoder(network_architecture,
                                      learning_rate=learning_rate, 
@@ -125,6 +117,7 @@ if __name__ == '__main__':
         mult_convs_lik = []
         mult_largest_imp_vals = []
         mult_avg_imp_vals = []
+        print("Beginning imputation of", m, "plausible dataset(s) with", max_iter, "imputation iterations")
         for i in range(m):
             print("Generating plausible dataset", i+1)
 
@@ -142,56 +135,50 @@ if __name__ == '__main__':
         # Check each plausible dataset is unique
         mult_imp_datasets[0] == mult_imp_datasets[1] # good!
 
-        print(mult_convs) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        iter = list(range(1,max_iter+1))
-        plt.plot(iter, mult_convs[0], 'ro')
-        plt.axis([0,max_iter+1,0,max(mult_conv[0])+0.1])
-        plt.ylabel('convergence')
-        plt.show()
+        print("Difference between previous iteration NA values and current:", mult_convs) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        for i in range(m):
+            iter = list(range(1,max_iter+1))
+            plt.plot(iter, mult_convs[i], 'ro')
+            plt.axis([0,max_iter+1,0,max(mult_convs[i])+0.1])
+            plt.ylabel('convergence')
+            plt.savefig(conv_out+'Difference_in_previous_iteration'+'_dataset_'+str(i+1)+'.png')
+            plt.close()
 
-        print(mult_convs_lik) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        iter = list(range(1,max_iter+1))
-        plt.plot(iter, mult_convs_lik[0], 'ro')
-        plt.axis([0,max_iter+1,0,max(mult_conv_lik[0])+0.1])
-        plt.ylabel('negative log likelihood')
-        plt.show() 
+        print("Likelihood at NA indices:", mult_convs_lik) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        for i in range(m):
+            iter = list(range(1,max_iter+1))
+            plt.plot(iter, mult_convs_lik[i], 'ro')
+            plt.axis([0,max_iter+1,0,max(mult_convs_lik[i])+0.1])
+            plt.ylabel('Negative log likelihood')
+            plt.savefig(conv_out+'Negative_log_likelihood'+'_dataset_'+str(i+1)+'.png') 
+            plt.close()
 
-        print(mult_largest_imp_vals) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        iter = list(range(1,max_iter+1))
-        plt.plot(iter, mult_largest_imp_vals[0], 'ro')
-        plt.axis([0,max_iter+1,0,max(mult_largest_imp_vals[0])+0.1])
-        plt.ylabel('largest imputed value (abs val)')
-        plt.show()  
+        print("Largest imputed values at each iteration:", mult_largest_imp_vals) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        for i in range(m):
+            iter = list(range(1,max_iter+1))
+            plt.plot(iter, mult_largest_imp_vals[i], 'ro')
+            plt.axis([0,max_iter+1,0,max(mult_largest_imp_vals[i])+0.1])
+            plt.ylabel('largest imputed value (abs val)')
+            plt.savefig(conv_out+'Largest_imputed_value'+'_dataset_'+str(i+1)+'.png')
+            plt.close()
+        
 
-        print(mult_avg_imp_vals) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        iter = list(range(1,max_iter+1))
-        plt.plot(iter, mult_avg_imp_vals[0], 'ro')
-        plt.axis([0,max_iter+1,0,max(mult_avg_imp_vals[0])+0.1])
-        plt.ylabel('largest imputed value (abs val)')
-        plt.show()    
+        print("Average imputed values at each iteration:", mult_avg_imp_vals) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
+        for i in range(m):
+            iter = list(range(1,max_iter+1))
+            plt.plot(iter, mult_avg_imp_vals[i], 'ro')
+            plt.axis([0,max_iter+1,0,max(mult_avg_imp_vals[i])+0.1])
+            plt.ylabel('average imputed value (abs val)')
+            plt.savefig(conv_out+'Average_imputed_value'+'_dataset_'+str(i+1)+'.png')
+            plt.close()
 
         if max_iter==100:
             np.savetxt('./MI_dataset_100_iterations_LGGGBM_trial1_10prctmissing.csv', mult_imp_datasets[0], delimiter=",")
-        
-        # Single imputation setting
-        #data = sc.inverse_transform(data)
-        #imputed_data = sc.inverse_transform(imputed_data)
-        #ReconstructionError = sum(((imputed_data[na_ind] - data[na_ind])**2)**0.5)/na_count
-        #print('Reconstruction error on single imputation (VAE):')
-        #print(ReconstructionError)
-        #np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", imputed_data, delimiter=",") 
-
-        # Export results from single imputation
-        #na_indices_single = pd.DataFrame(
-        #    {'imputed_dataset': imputed_data[na_ind],
-        #     'actual_values': data[na_ind]
-        #    })
-
-        #na_indices_single.to_csv('NA_imputed_values_single_imputation.csv')
 
         # Multiple imputation setting
         # First of all we need to inverse transform all plausible datasets and then compute an average across for our final dataset
         # Can also plot the reconstruction error of each in a boxplot?
+        data = sc.inverse_transform(data)
         reconstr_error = []
         for i in range(m):
             print("Transforming imputed dataset", i+1)
@@ -201,14 +188,17 @@ if __name__ == '__main__':
 
         plt.boxplot(reconstr_error)
         plt.ylabel("reconstruction error")
-        plt.show()
+        plt.savefig(na_out+'Reconstruction_error_boxplot.png')
+        plt.close()
 
         for i in range(m):
-            print("Saving plausible dataset", i+1)
-            np.savetxt("./mult_imputed_data_trial_"+str(trial_ind)+"_dataset_"+str(m)+"_VAE.csv", mult_imp_datasets[i], delimiter=",")  
+            print("Saving plausible dataset", i+1, "to", imp_out)
+            np.savetxt(imp_out+"./mult_imputed_data_trial_"+str(trial_ind)+"_dataset_"+str(i+1)+"_VAE.csv", mult_imp_datasets[i], delimiter=",")  
 
         for i in range(m):
             print('Reconstruction error on multiple imputation (VAE) for dataset', i+1, reconstr_error[i])
+
+        np.savetxt(na_out+'reconstruction_error.csv', reconstr_error, delimiter=',')
 
         # Compute confidence intervals for each NA index
         na_indices = pd.DataFrame(
@@ -225,11 +215,5 @@ if __name__ == '__main__':
              'actual_values': data[na_ind]
             })
 
-        na_indices.to_csv('NA_imputed_values_m_datasets.csv')
+        na_indices.to_csv(na_out+'NA_imputed_values_m_datasets.csv')
 
-        
-
-
-
-
-        

@@ -2,6 +2,7 @@ import random
 import numpy as np
 import tensorflow as tf
 from sklearn.metrics import r2_score
+from tensorflow.python.ops.gen_math_ops import exp
 Normal = tf.contrib.distributions.Normal
 np.random.seed(0)
 tf.set_random_seed(0)
@@ -191,7 +192,7 @@ class VariationalAutoencoder(object):
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
         
-            data_reconstruct = self.reconstruct(data_miss_val) # datat_reconstruct.shape = (n_missing, n_features)
+            data_reconstruct = self.reconstruct(data_miss_val)
             if i != 0:
                 print(data_reconstruct[na_ind] - data_miss_val[na_ind])
             # Take average of absolute values across all values different between reconstructed data from previous step
@@ -227,9 +228,12 @@ class VariationalAutoencoder(object):
         convergence_loglik = []
         largest_imp_val = []
         avg_imp_val = []
-        mean_sigma_sq = []
+        z_s_minus_1 = []
+        x_hat_mean_s_minus_1 = []
+        x_hat_log_sigma_sq_s_minus_1 = []
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
+            print("Running imputation iteration", i+1)
             ## Here - need a function which passes z_sample into the decoder and obtains the distribution of x_hat
             # Once x_hat distribution is generated, we need a random sample from this distribution
             # Then take all values at na_ind and replace them in the original data_miss_val with the sampled values from x_hat
@@ -237,7 +241,7 @@ class VariationalAutoencoder(object):
             # calling x_hat_mean and x_hat_log_sigma_sq actually pulls a random sample from z via re-parametrization trick and then feeds it through the decoder 
             # And then computes the distribution and pulls a sample from this
             # Obtain a random sample from z, x_hat_mean and x_hat_log_sigma_sq given our corrupt data
-            x_hat_mean, x_hat_log_sigma_sq = self.sess.run([self.x_hat_mean, self.x_hat_log_sigma_sq],
+            x_hat_mean, x_hat_log_sigma_sq, z_samp, z_mean, z_log_sigma_sq = self.sess.run([self.x_hat_mean, self.x_hat_log_sigma_sq, self.z, self.z_mean, self.z_log_sigma_sq],
                              feed_dict={self.x: data_miss_val}) 
 
             X_hat_distribution = Normal(loc=x_hat_mean,
@@ -246,15 +250,14 @@ class VariationalAutoencoder(object):
             x_hat_sample = self.sess.run(X_hat_distribution.sample())
             # Take average of absolute values across all values different between reconstructed data from previous step
             convergence.append(np.mean(np.abs(x_hat_sample[na_ind] - data_miss_val[na_ind])))
-            mean_sigma_sq.append(x_hat_log_sigma_sq.mean())
+
             # monitor log-likelihood for Ymis across iterations
             # evaluate density of X_hat_distrubution at imputed values
             # first extract mean and stdev of x_hat at na_ind and compute X_hat_distribution
             X_hat_distribution_na = Normal(loc = x_hat_mean[na_ind], scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq[na_ind])))
 
-            # Compute log likelihood of X hat distribution from data_miss_val compared to _hat_sample
-            log_likl_na = \
-            -tf.reduce_sum(self.sess.run(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])))
+            # Compute negative log likelihood of X hat distribution from data_miss_val compared to _hat_sample
+            log_likl_na = -tf.reduce_sum(self.sess.run(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])))
 
             # Compute sum across all na ind of log likelihood between previous and current iteration
             sum_log_likl = self.sess.run(log_likl_na)
@@ -266,14 +269,51 @@ class VariationalAutoencoder(object):
             # Store average absolute value of all NA indices (compared to baseline zero)
             avg_imp_val.append(np.mean(np.abs(x_hat_sample[na_ind])))
 
-            # Replace na_ind with newly imputed values
-            data_miss_val[na_ind] = x_hat_sample[na_ind] 
+            ## To calculate acceptance probability, we need to calculate various metrics at each imputation iteration
+            # Store z_samp from this iteration
+            if i == 0:
+                # First iteration you must set z_samp to the first sampling
+                z_s_minus_1 = z_samp
+                x_hat_mean_s_minus_1 = x_hat_mean
+                x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
+
+                # Replace na_ind with x_hat_sample from first sampling
+                data_miss_val[na_ind] = x_hat_sample[na_ind]
+            else:
+                # Define distributions
+                z_Distribution = Normal(loc = z_mean, scale = tf.sqrt(tf.exp(z_log_sigma_sq)))
+                z_prior = Normal(loc = np.zeros(z_mean.shape), scale = np.ones(z_mean.shape))
+                X_hat_distr_s_minus_1 = Normal(loc = x_hat_mean_s_minus_1, scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
+
+                # Calculate log likelihood for previous and new sample to calculate acceptance probability with
+                log_q_z_star = self.sess.run(tf.reduce_sum(self.sess.run(z_Distribution.log_prob(z_samp))))
+                log_q_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(z_Distribution.log_prob(z_s_minus_1))))
+                log_p_z_star = self.sess.run(tf.reduce_sum(self.sess.run(z_prior.log_prob(z_samp))))
+                log_p_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(z_prior.log_prob(z_s_minus_1))))
+                log_p_Y_z_star = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distribution.log_prob(data_miss_val))))
+                log_p_Y_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distr_s_minus_1.log_prob(data_miss_val))))
+
+                # Acceptance probability of sample z_star
+                a_prob = self.sess.run(tf.exp(log_p_Y_z_star+log_p_z_star+log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1+log_p_z_s_minus_1+log_q_z_star)))
+
+                # If we accept the new sample, set (s-1) z-sample as the new previous sampling
+                if np.random.uniform() < a_prob:
+                    print("new sample accepted with acceptance probability", a_prob)
+                    z_s_minus_1 = z_samp
+                    x_hat_mean_s_minus_1 = x_hat_mean
+                    x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
+
+                    # Replace na_ind with x_hat_sample from this z_sampling
+                    data_miss_val[na_ind] = x_hat_sample[na_ind] # Otherwise retain Ymis(s-1)
+                else:
+                    print("new sample rejected with acceptance probability", a_prob)
+
 
         # after the iterations have run through, you will have 1 of m plausible MI datasets
         data_corrupt[missing_row_ind,:] = data_miss_val
         data_imputed = data_corrupt
 
-        return data_imputed, convergence, convergence_loglik, largest_imp_val, avg_imp_val, mean_sigma_sq
+        return data_imputed, convergence, convergence_loglik, largest_imp_val, avg_imp_val
 
     def test_sampling(self, data_corrupt, max_iter = 10):
         """
