@@ -2,7 +2,7 @@ from sklearn.model_selection import KFold
 import tensorflow as tf
 from tensorflow import keras
 from betaVAEv2 import VariationalAutoencoderV2
-from lib import get_scaled_data
+from lib.helper_functions import get_scaled_data
 """
 The goal of this experiment is to determine if a VAE
 trained with input dropout does better at reconstructing

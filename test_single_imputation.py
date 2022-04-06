@@ -1,5 +1,8 @@
 import os
-os.chdir("git_repository/BetaVAEImputation")
+try:
+    os.chdir("git_repository/BetaVAEImputation")
+except FileNotFoundError:
+    pass
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -43,6 +46,11 @@ if __name__ == '__main__':
         rp=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt"
         
         print("restore path: ", rp)
+
+        imp_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/single_imputation/imputed_datasets/"
+        conv_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/single_imputation/convergence_plots/"
+        na_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/single_imputation/NA_indices/"
+        
         
         # LOAD DATA
         data= pd.read_csv(data_path).values
@@ -76,7 +84,7 @@ if __name__ == '__main__':
         Encoder_hidden2 = hidden_size_1 #6000
 
         # specify number of imputation iterations:
-        ImputeIter = 4 # looks like both strategies converge around 4 iterations
+        ImputeIter = 5 # looks like both strategies converge around 4 iterations
         
         # define dict for network structure:
         network_architecture = \
@@ -107,66 +115,25 @@ if __name__ == '__main__':
         plt.plot(iter, conv, 'ro')
         plt.axis([0,max_iter+1,0,max(conv)+0.05])
         plt.ylabel('convergence')
-        plt.show()
+        plt.savefig(conv_out+'Difference_in_previous_iteration.png')
+        plt.close()
 
-        # Generate m plausible datasets via impute_multiple() function
-
-        # Let's do the same with multiple imputation
-        vae_mult = VariationalAutoencoder(network_architecture,
-                                     learning_rate=learning_rate, 
-                                     batch_size=batch_size,istrain=False,restore_path=rp,beta=beta)
-
-        # Let's run a for loop where we copy data_missing2 at the beginning and feed that into impute_multiple()
-        m = int(10)
-        mult_imp_datasets = []
-        mult_convs = []
-        for i in range(m):
-            print("Generating plausible dataset", i+1)
-
-            data_missing_mult = np.copy(data_missing2)
-            mult_imputed_data, mult_conv = vae_mult.impute_multiple(data_corrupt = data_missing_mult, max_iter = max_iter)
-
-            # Add to list
-            mult_imp_datasets.append(np.copy(mult_imputed_data))
-            mult_convs.append(np.copy(mult_conv))
-
-        # Check each plausible dataset is unique
-        mult_imp_datasets[0] != mult_imp_datasets[1] # good!
-
-        print(mult_convs) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        iter = list(range(1,max_iter+1))
-        plt.plot(iter, mult_convs[0], 'ro')
-        plt.axis([0,max_iter+1,0,max(mult_conv[0])+0.1])
-        plt.ylabel('convergence')
-        plt.show()
-        
         # Single imputation setting
         data = sc.inverse_transform(data)
         imputed_data = sc.inverse_transform(imputed_data)
         ReconstructionError = sum(((imputed_data[na_ind] - data[na_ind])**2)**0.5)/na_count
         print('Reconstruction error on single imputation (VAE):')
         print(ReconstructionError)
-        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", imputed_data, delimiter=",") 
+        np.savetxt(imp_out+"./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", imputed_data, delimiter=",") 
 
-        # Multiple imputation setting
-        # First of all we need to inverse transform all plausible datasets and then compute an average across for our final dataset
-        # Can also plot the reconstruction error of each in a boxplot?
-        reconstr_error = []
-        for i in range(m):
-            print("Transforming imputed dataset", i+1)
-            mult_imp_datasets[i] = sc.inverse_transform(mult_imp_datasets[i]) 
-            print("Computing reconstruction error for dataset", i+1)
-            reconstr_error.append(sum(((mult_imp_datasets[i][na_ind] - data[na_ind])**2)**0.5)/na_count)
+        np.savetxt(na_out+'reconstruction_error.csv', ReconstructionError, delimiter=',')
 
-        plt.boxplot(reconstr_error)
-        plt.ylabel("reconstruction error")
-        plt.show()
+        # Export results from single imputation
+        na_indices_single = pd.DataFrame(
+            {'imputed_dataset': imputed_data[na_ind],
+             'actual_values': data[na_ind]
+            })
 
-        for i in range(m):
-            print("Saving plausible dataset", i+1)
-            np.savetxt("./mult_imputed_data_trial_"+str(trial_ind)+"_dataset_"+str(m)+"_VAE.csv", mult_imp_datasets[i], delimiter=",")  
-
-        for i in range(m):
-            print('Reconstruction error on multiple imputation (VAE) for dataset', i+1, reconstr_error[i])
-
+        na_indices_single.to_csv(na_out+'NA_imputed_values_single_imputation.csv')
+        
         

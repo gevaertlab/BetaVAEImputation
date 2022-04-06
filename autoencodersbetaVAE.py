@@ -1,12 +1,12 @@
 import random
 import numpy as np
 import tensorflow as tf
-# Normal = tf.contrib.distributions.Normal
-Normal = tf.compat.v1.distributions.Normal
+from tensorflow.python.ops.gen_math_ops import exp
+Normal = tf.contrib.distributions.Normal
 np.random.seed(0)
-tf.random.set_seed(0)
+tf.set_random_seed(0)
 
-tf.compat.v1.disable_eager_execution()
+
 class VariationalAutoencoder(object):
 #"VAE implementation is based on the implementation from  McCoy, J.T.,et al."
 #https://www-sciencedirect-com.stanford.idm.oclc.org/science/article/pii/S2405896318320949"
@@ -20,21 +20,21 @@ class VariationalAutoencoder(object):
         self.batch_size = batch_size
         self.beta=beta
         
-        self.x = tf.compat.v1.placeholder(tf.float32, [None, network_architecture["n_input"]])
+        self.x = tf.placeholder(tf.float32, [None, network_architecture["n_input"]])
         
         self._create_network()
         
         self._create_loss_optimizer()
         
-        self.saver = tf.compat.v1.train.Saver()
+        self.saver = tf.train.Saver()
 
-        init = tf.compat.v1.global_variables_initializer()
+        init = tf.global_variables_initializer()
         
         if istrain:
-            self.sess = tf.compat.v1.InteractiveSession()
+            self.sess = tf.InteractiveSession()
             self.sess.run(init)
         else:
-            self.sess=tf.compat.v1.Session()
+            self.sess=tf.Session()            
             self.saver.restore(self.sess, restore_path)
     
     def _create_network(self):
@@ -45,11 +45,11 @@ class VariationalAutoencoder(object):
             self._recognition_network(network_weights["weights_recog"], 
                                       network_weights["biases_recog"])
 
-        eps = tf.random.normal(tf.shape(self.z_mean), 0, 1,
+        eps = tf.random_normal(tf.shape(self.z_mean), 0, 1, 
                                dtype=tf.float32)
 
         self.z = tf.add(self.z_mean, 
-                        tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps)) # reparameterization trick happens here
+                        tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps))
 
         self.x_hat_mean, self.x_hat_log_sigma_sq = \
             self._generator_network(network_weights["weights_gener"],
@@ -92,7 +92,6 @@ class VariationalAutoencoder(object):
         z_log_sigma_sq = \
             tf.add(tf.matmul(layer_2, weights['out_log_sigma']), 
                    biases['out_log_sigma'])
-
         return (z_mean, z_log_sigma_sq)
     
     def _generator_network(self, weights, biases):
@@ -112,7 +111,7 @@ class VariationalAutoencoder(object):
             
     def _create_loss_optimizer(self):
 
-        # 1. Reconstruction loss - the negative log probability of of the input under the reconstructed Bernoulli distribution (Bernoulli? should be Gaussian?)
+        # 1. Reconstruction loss - the negative log probability of of the input under the reconstructed Gaussian distribution
         # induced by the decoder in the latent space 
         # Note: if we want to use all observed data, instead of splitting into training and testing, this reconstruction loss/xhat distribution would only
         # consider observed/non missing data - in 119 replace log prob with zero for missing indices?
@@ -123,49 +122,21 @@ class VariationalAutoencoder(object):
           
         # 2. Latent loss - KL divergence between between the latent space distribution induced by the encoder on the data
         # And some prior
-        latent_loss = -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq # pushes sigma to infinity
-                                           - tf.square(self.z_mean) # pushes x_mean to zero
-                                           - tf.exp(self.z_log_sigma_sq), 1) # pushes sigma to zero
-        self.reconstr_loss = reconstr_loss
-        self.latent_loss = latent_loss
+        latent_loss = -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
+                                           - tf.square(self.z_mean) 
+                                           - tf.exp(self.z_log_sigma_sq), 1)
         self.cost = tf.reduce_mean(reconstr_loss + self.beta *latent_loss)   # average over batch
         self.latent_cost=self.beta *latent_loss
         
         self.optimizer = \
-            tf.compat.v1.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
+            tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
                 
     def fit(self, data):
 
         opt, cost = self.sess.run((self.optimizer, self.cost), 
                                   feed_dict={self.x: data})
         return cost
-
-    def inspect_components(self, data):
-        components = {
-            'latent_cost': self.sess.run(self.latent_cost,
-                                      feed_dict={self.x: data}),
-            'cost': self.sess.run(self.cost,
-                                      feed_dict={self.x: data}),
-            'latent_loss': self.sess.run(self.latent_loss,
-                                      feed_dict={self.x: data}),
-            'reconstr_loss': self.sess.run(self.reconstr_loss,
-                                      feed_dict={self.x: data}),
-            'x': self.sess.run(self.x,
-                                      feed_dict={self.x: data}),
-            'x_hat_mean': self.sess.run(self.x_hat_mean,
-                                      feed_dict={self.x: data}),
-            'x_hat_log_sig_sq': self.sess.run(self.x_hat_log_sigma_sq,
-                                      feed_dict={self.x: data}),
-            'z_log_sigma_sq': self.sess.run(self.z_log_sigma_sq,
-                                      feed_dict={self.x: data}),
-            'z': self.sess.run(self.z,
-                                      feed_dict={self.x: data}),
-            'z_mean': self.sess.run(self.z_mean,
-                                      feed_dict={self.x: data}),
-
-        }
-        return components
-
+    
     def inspect_latent_cost (self, data):
 
         lc = self.sess.run(self.latent_cost, 
@@ -182,7 +153,7 @@ class VariationalAutoencoder(object):
             x_hat_mu, x_hat_logsigsq = self.sess.run((self.x_hat_mean, self.x_hat_log_sigma_sq), 
                              feed_dict={self.x: data})
         
-            eps = tf.random.normal(tf.shape(data), 1,
+            eps = tf.random_normal(tf.shape(data), 1, 
                                dtype=tf.float32)
 
             x_hat = tf.add(x_hat_mu, 
@@ -212,7 +183,7 @@ class VariationalAutoencoder(object):
         convergence = []
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
-            previous_missing = np.copy(data_miss_val)
+        
             data_reconstruct = self.reconstruct(data_miss_val)
             if i != 0:
                 print(data_reconstruct[na_ind] - data_miss_val[na_ind])
@@ -246,8 +217,15 @@ class VariationalAutoencoder(object):
         na_ind = np.where(np.isnan(data_miss_val))
         data_miss_val[na_ind] = 0
         convergence = []
+        convergence_loglik = []
+        largest_imp_val = []
+        avg_imp_val = []
+        z_s_minus_1 = []
+        x_hat_mean_s_minus_1 = []
+        x_hat_log_sigma_sq_s_minus_1 = []
         # Run through 10 iterations of computing latent space and reconstructing data and then feeding that back through the trained VAE
         for i in range(max_iter):
+            print("Running imputation iteration", i+1)
             ## Here - need a function which passes z_sample into the decoder and obtains the distribution of x_hat
             # Once x_hat distribution is generated, we need a random sample from this distribution
             # Then take all values at na_ind and replace them in the original data_miss_val with the sampled values from x_hat
@@ -255,7 +233,7 @@ class VariationalAutoencoder(object):
             # calling x_hat_mean and x_hat_log_sigma_sq actually pulls a random sample from z via re-parametrization trick and then feeds it through the decoder 
             # And then computes the distribution and pulls a sample from this
             # Obtain a random sample from z, x_hat_mean and x_hat_log_sigma_sq given our corrupt data
-            z_sample, x_hat_mean, x_hat_log_sigma_sq = self.sess.run([self.z, self.x_hat_mean, self.x_hat_log_sigma_sq],
+            x_hat_mean, x_hat_log_sigma_sq, z_samp, z_mean, z_log_sigma_sq = self.sess.run([self.x_hat_mean, self.x_hat_log_sigma_sq, self.z, self.z_mean, self.z_log_sigma_sq],
                              feed_dict={self.x: data_miss_val}) 
 
             X_hat_distribution = Normal(loc=x_hat_mean,
@@ -263,15 +241,71 @@ class VariationalAutoencoder(object):
 
             x_hat_sample = self.sess.run(X_hat_distribution.sample())
             # Take average of absolute values across all values different between reconstructed data from previous step
-            vals = np.abs(x_hat_sample[na_ind] - data_miss_val[na_ind])
-            convergence.append(np.mean(vals))
-            data_miss_val[na_ind] = x_hat_sample[na_ind] 
+            convergence.append(np.mean(np.abs(x_hat_sample[na_ind] - data_miss_val[na_ind])))
+
+            # monitor log-likelihood for Ymis across iterations
+            # evaluate density of X_hat_distrubution at imputed values
+            # first extract mean and stdev of x_hat at na_ind and compute X_hat_distribution
+            X_hat_distribution_na = Normal(loc = x_hat_mean[na_ind], scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq[na_ind])))
+
+            # Compute negative log likelihood of X hat distribution from data_miss_val compared to _hat_sample
+            log_likl_na = -tf.reduce_sum(self.sess.run(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])))
+
+            # Compute sum across all na ind of log likelihood between previous and current iteration
+            sum_log_likl = self.sess.run(log_likl_na)
+            convergence_loglik.append(sum_log_likl)
+
+            # Store the largest value imputed at the NA indices
+            largest_imp_val.append(np.amax(np.abs(x_hat_sample[na_ind])))
+
+            # Store average absolute value of all NA indices (compared to baseline zero)
+            avg_imp_val.append(np.mean(np.abs(x_hat_sample[na_ind])))
+
+            ## To calculate acceptance probability, we need to calculate various metrics at each imputation iteration
+            # Store z_samp from this iteration
+            if i == 0:
+                # First iteration you must set z_samp to the first sampling
+                z_s_minus_1 = z_samp
+                x_hat_mean_s_minus_1 = x_hat_mean
+                x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
+
+                # Replace na_ind with x_hat_sample from first sampling
+                data_miss_val[na_ind] = x_hat_sample[na_ind] 
+            else:
+                # Define distributions
+                z_Distribution = Normal(loc = z_mean, scale = tf.sqrt(tf.exp(z_log_sigma_sq)))
+                z_prior = Normal(loc = np.zeros(z_mean.shape), scale = np.ones(z_mean.shape))
+                X_hat_distr_s_minus_1 = Normal(loc = x_hat_mean_s_minus_1, scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
+
+                # Calculate log likelihood for previous and new sample to calculate acceptance probability with
+                log_q_z_star = self.sess.run(tf.reduce_sum(self.sess.run(z_Distribution.log_prob(z_samp))))
+                log_q_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(z_Distribution.log_prob(z_s_minus_1))))
+                log_p_z_star = self.sess.run(tf.reduce_sum(self.sess.run(z_prior.log_prob(z_samp)))) 
+                log_p_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(z_prior.log_prob(z_s_minus_1)))) 
+                log_p_Y_z_star = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distribution.log_prob(data_miss_val)))) 
+                log_p_Y_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distr_s_minus_1.log_prob(data_miss_val))))
+
+                # Acceptance probability of sample z_star
+                a_prob = self.sess.run(tf.exp(log_p_Y_z_star+log_p_z_star+log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1+log_p_z_s_minus_1+log_q_z_star)))
+
+                # If we accept the new sample, set (s-1) z-sample as the new previous sampling
+                if np.random.uniform() < a_prob:
+                    print("new sample accepted with acceptance probability", a_prob)
+                    z_s_minus_1 = z_samp
+                    x_hat_mean_s_minus_1 = x_hat_mean
+                    x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
+
+                    # Replace na_ind with x_hat_sample from this z_sampling
+                    data_miss_val[na_ind] = x_hat_sample[na_ind] # Otherwise retain Ymis(s-1)
+                else:
+                    print("new sample rejected with acceptance probability", a_prob)
+            
 
         # after the iterations have run through, you will have 1 of m plausible MI datasets
         data_corrupt[missing_row_ind,:] = data_miss_val
         data_imputed = data_corrupt
 
-        return data_imputed, convergence
+        return data_imputed, convergence, convergence_loglik, largest_imp_val, avg_imp_val
 
     def test_sampling(self, data_corrupt, max_iter = 10):
         """
@@ -327,7 +361,6 @@ class VariationalAutoencoder(object):
                 batch_xs = next_batch(data,self.batch_size)
                 cost = self.fit(batch_xs)
                 lc = self.inspect_latent_cost(batch_xs)
-                components = self.inspect_components(batch_xs) # used for debugging and understanding
                 avg_cost += cost / n_samples * self.batch_size
                
             if epoch % display_step == 0:
@@ -338,6 +371,22 @@ class VariationalAutoencoder(object):
         self.losshistory = losshistory
         self.losshistory_epoch = losshistory_epoch
         return self
+
+    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE'):
+        losses = []
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))
+        data_miss_val = np.copy(data_corrupt[missing_row_ind[0], :])
+        true_values_for_missing = data_complete[missing_row_ind[0], :]
+        na_ind = np.where(np.isnan(data_miss_val))
+        data_miss_val[na_ind] = 0
+        for i in range(n_recycles):
+            data_reconstruct = self.reconstruct(data_miss_val)
+            data_miss_val[na_ind] = data_reconstruct[na_ind]
+            if loss == 'RMSE':
+                losses.append(np.sqrt(((true_values_for_missing[na_ind] - data_reconstruct[na_ind])**2).mean()))
+            elif loss == 'MAE':
+                losses.append(np.abs(true_values_for_missing[na_ind] - data_reconstruct[na_ind]).mean())
+        return losses
 
 def next_batch(data,batch_size):
 
@@ -354,6 +403,6 @@ def xavier_init(fan_in, fan_out, constant=1):
     # https://stackoverflow.com/questions/33640581/how-to-do-xavier-initialization-on-tensorflow
     low = -constant*np.sqrt(6.0/(fan_in + fan_out)) 
     high = constant*np.sqrt(6.0/(fan_in + fan_out))
-    return tf.random.uniform((fan_in, fan_out),
+    return tf.random_uniform((fan_in, fan_out), 
                              minval=low, maxval=high, 
                              dtype=tf.float32)

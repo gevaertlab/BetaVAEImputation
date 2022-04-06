@@ -1,11 +1,13 @@
 *.csv
 *.gz
 */__pycache__/*
-.idea
 *.pyc
-venv/
 output/
 logs/
 data/*
+logs/*
 output/*
-__pycache__/*
+.idea/
+venv/
+top_up_train_saved_model.py
+lib/__pycache__/*

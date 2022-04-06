@@ -1,8 +1,5 @@
 import os
-try:
-    os.chdir("git_repository/BetaVAEImputation")
-except FileNotFoundError:
-    pass
+os.chdir("git_repository/BetaVAEImputation")
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -15,7 +12,7 @@ import argparse
 import json
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, default='example_config_VAE.json', help='configuration json file')
+parser.add_argument('--config', type=str, default='config.json', help='configuration json file')
 
 if __name__ == '__main__':
     
@@ -24,7 +21,7 @@ if __name__ == '__main__':
         #    config = json.load(f)
 
         # For running locally
-        with open("example_config_VAE.json") as f:
+        with open("5foldCV_config_VAE.json") as f:
             config = json.load(f)
 
     
@@ -38,6 +35,9 @@ if __name__ == '__main__':
         data_path =   config["data_path"]     
         corrupt_data_path = config["corrupt_data_path"]
         save_root = config["save_rootpath"]
+
+        print("Fitting cross validation dataset", corrupt_data_path)
+        print("Trained model saved in", save_root)
         
         # Read in complete data
         data = pd.read_csv(data_path).values
@@ -62,9 +62,6 @@ if __name__ == '__main__':
         # Re-assign the missing values to the same positions as before
         data_missing[na_ind] = np.nan
         del data_missing_complete
-
-        # Remove strings and metadata from first few columns in data
-        data = np.delete(data,np.s_[0:4], axis=1)
         data = sc.transform(data)
 
         # VAE network size:
@@ -93,5 +90,7 @@ if __name__ == '__main__':
         vae = vae.train(data=data_missing,
                         training_epochs=training_epochs)
 
+        #save_root = 'output/5foldCV/CV3/'
         saver = tf.train.Saver()
         save_path = saver.save(vae.sess, save_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt")
+        
