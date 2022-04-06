@@ -19,13 +19,14 @@ def evaluate_model_v2(model):
     data = sc.transform(data)
     data_missing[na_ind] = np.nan
     del data_missing_complete
-    losses = model.evaluate_on_true(data_missing, data, n_recycles=6, loss='RMSE', scaler=sc)
+    losses = model.evaluate_on_true(data_missing, data, n_recycles=6, loss='all', scaler=sc)
     bp=True
+    return losses
 
 if __name__=="__main__":
 
-    encoder_path = '../output/masked_20220406-07:32:09_encoder.keras'
-    decoder_path = '../output/masked_20220406-07:32:09_decoder.keras'
+    encoder_path = '../output/encoder_masked_2022-04-06-10:16:12_lr0p0005_epoch250.keras'
+    decoder_path = '../output/decoder_masked_20220406-10:16:12_lr0p0005_epoch250.keras'
     encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
     decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
 
@@ -33,4 +34,5 @@ if __name__=="__main__":
                                    pretrained_decoder=decoder)
 
     model.compile()
-    evaluate_model_v2(model)
+    losses = evaluate_model_v2(model)
+    bp=True

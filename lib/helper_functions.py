@@ -15,7 +15,7 @@ data_path = config["data_path"]
 corrupt_data_path = config["corrupt_data_path"]
 from sklearn.preprocessing import StandardScaler
 
-def get_scaled_data():
+def get_scaled_data(return_scaler=False, put_nans_back=False):
     for _ in range(3):
         if os.getcwd().split('/')[-1] == 'BetaVAEImputation':
             break
@@ -32,7 +32,12 @@ def get_scaled_data():
     del data_missing_complete
     data = np.array(np.copy(data[:,4:]),dtype='float64')
     data = sc.transform(data)
-    return data, data_missing
+    if put_nans_back:
+        data_missing[na_ind] = np.nan
+    if return_scaler:
+        return data, data_missing, sc
+    else:
+        return data, data_missing
 
 
 def apply_scaler(data, data_missing, return_scaler=False):
