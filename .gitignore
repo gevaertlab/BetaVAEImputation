@@ -5,6 +5,7 @@
 output/
 logs/
 data/*
+logs/*
 output/*
 .idea/
 venv/

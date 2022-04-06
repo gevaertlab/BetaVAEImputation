@@ -46,6 +46,11 @@ if __name__ == '__main__':
         rp=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"_betaVAE"+".ckpt"
         
         print("restore path: ", rp)
+
+        imp_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/single_imputation/imputed_datasets/"
+        conv_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/single_imputation/convergence_plots/"
+        na_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/single_imputation/NA_indices/"
+        
         
         # LOAD DATA
         data= pd.read_csv(data_path).values
@@ -79,7 +84,7 @@ if __name__ == '__main__':
         Encoder_hidden2 = hidden_size_1 #6000
 
         # specify number of imputation iterations:
-        ImputeIter = 100 # looks like both strategies converge around 4 iterations
+        ImputeIter = 5 # looks like both strategies converge around 4 iterations
         
         # define dict for network structure:
         network_architecture = \
@@ -103,35 +108,15 @@ if __name__ == '__main__':
         # What we can do is look at the location of every single na index for each "iteration"
         # compute the difference between current and previous iteration, take the absolute value and then average across all na indices
         # To do this, we need to add into the function impute_multiple a way to store this value ^ into a list and then plot
-        imputed_data, conv, conv_lik, largest_imp_val, avg_imp_val = vae.impute(data_corrupt = data_missing, max_iter = max_iter)
+        imputed_data, conv = vae.impute(data_corrupt = data_missing, max_iter = max_iter)
 
         print(conv) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
         iter = list(range(1,max_iter+1))
         plt.plot(iter, conv, 'ro')
         plt.axis([0,max_iter+1,0,max(conv)+0.05])
         plt.ylabel('convergence')
-        plt.show()
-
-        print(conv_lik) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        iter = list(range(1,max_iter+1))
-        plt.plot(iter, conv_lik, 'ro')
-        plt.axis([0,max_iter+1,0,max(conv_lik)+0.1])
-        plt.ylabel('negative log likelihood')
-        plt.show() 
-
-        print(largest_imp_val) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        iter = list(range(1,max_iter+1))
-        plt.plot(iter, largest_imp_val, 'ro')
-        plt.axis([0,max_iter+1,0,max(largest_imp_val)+0.1])
-        plt.ylabel('largest imputed value (abs val)')
-        plt.show()  
-
-        print(avg_imp_val) # Looks right! and looks like it is going down. Let's see what this looks like in graph form.
-        iter = list(range(1,max_iter+1))
-        plt.plot(iter, avg_imp_val, 'ro')
-        plt.axis([0,max_iter+1,0,max(avg_imp_val)+0.1])
-        plt.ylabel('largest imputed value (abs val)')
-        plt.show()    
+        plt.savefig(conv_out+'Difference_in_previous_iteration.png')
+        plt.close()
 
         # Single imputation setting
         data = sc.inverse_transform(data)
@@ -139,7 +124,9 @@ if __name__ == '__main__':
         ReconstructionError = sum(((imputed_data[na_ind] - data[na_ind])**2)**0.5)/na_count
         print('Reconstruction error on single imputation (VAE):')
         print(ReconstructionError)
-        np.savetxt("./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", imputed_data, delimiter=",") 
+        np.savetxt(imp_out+"./imputed_data_trial_"+str(trial_ind)+"_VAE.csv", imputed_data, delimiter=",") 
+
+        np.savetxt(na_out+'reconstruction_error.csv', ReconstructionError, delimiter=',')
 
         # Export results from single imputation
         na_indices_single = pd.DataFrame(
@@ -147,6 +134,6 @@ if __name__ == '__main__':
              'actual_values': data[na_ind]
             })
 
-        na_indices_single.to_csv('NA_imputed_values_single_imputation.csv')
+        na_indices_single.to_csv(na_out+'NA_imputed_values_single_imputation.csv')
         
         
