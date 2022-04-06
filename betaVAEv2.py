@@ -145,7 +145,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
             z_mean, z_log_var, z = self.encoder(x)
             if self.proba_output:
                 # output = self.decoder(z)
-                # tf.print(output[0].shape)
+                tf.print(z_mean)
+                tf.print(z_log_var)
                 # tf.print(len(output))
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder(z)
                 reconstruction_loss = self.mvn_neg_ll(y, (x_hat_mean, x_hat_log_sigma_sq))
@@ -181,14 +182,15 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
 def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
                   decoder_path='output/20220405-14:37:31_decoder.keras',
-                  network_architecture = network_architecture
+                  network_architecture = network_architecture, load_pretrained=True
                   ):
 
-    encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
-    decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
-    data, data_missing = get_scaled_data()
-    n_row = data.shape[1]
-    network_architecture['n_input']=n_row
+    if load_pretrained:
+        encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
+        decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
+    else:
+        encoder = None
+        decoder = None
     vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=1, pretrained_encoder=encoder,
                                    pretrained_decoder=decoder)
     return vae
