@@ -52,7 +52,7 @@ if __name__ == '__main__':
     # How many genes do we have? ie. what is the dimensiontality of Yobs?
     n_row = data_missing.shape[1]  # dimensionality of data space
     # Store the index of each sample that is complete
-    non_missing_row_ind = np.where(np.isfinite(np.sum(data_missing, axis=1)))
+    non_missing_row_ind = np.where(np.isfinite(data_missing).all(axis=1))
     # Store the rows and columns of every missing data point in your "data_missing" numpy array
     na_ind = np.where(np.isnan(data_missing))
 

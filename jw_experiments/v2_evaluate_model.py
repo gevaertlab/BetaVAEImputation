@@ -6,18 +6,20 @@ from betaVAEv2 import VariationalAutoencoderV2, Sampling, network_architecture
 from lib.helper_functions import get_scaled_data
 
 def evaluate_model_v2(model):
-    data = pd.read_csv('../data/data_complete.csv')
-    data_missing = pd.read_csv('../data/LGGGBM_missing_10perc_trial1.csv')
-    non_missing_row_ind = np.where(np.isfinite(np.sum(data_missing, axis=1)))
+    data = pd.read_csv('../data/data_complete.csv').values
+    data = np.array(np.copy(data[:, 4:]), dtype='float64')
+    data_missing = pd.read_csv('../data/LGGGBM_missing_10perc_trial1.csv').values
+    non_missing_row_ind = np.where(np.isfinite(data_missing).all(axis=1))
     na_ind = np.where(np.isnan(data_missing))
     sc = StandardScaler()
     data_missing_complete = np.copy(data_missing[non_missing_row_ind[0], :])
     sc.fit(data_missing_complete)
     data_missing[na_ind] = 0
     data_missing = sc.transform(data_missing)
+    data = sc.transform(data)
+    data_missing[na_ind] = np.nan
     del data_missing_complete
-    data = np.array(np.copy(data[:,4:]),dtype='float64')
-    losses = model.evaluate_on_true(data_missing, data, n_recycles=6, loss='RMSE')
+    losses = model.evaluate_on_true(data_missing, data, n_recycles=6, loss='RMSE', scaler=sc)
     bp=True
 
 if __name__=="__main__":

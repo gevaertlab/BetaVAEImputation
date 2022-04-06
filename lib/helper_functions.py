@@ -22,7 +22,7 @@ def get_scaled_data():
         os.chdir('..')
     data = pd.read_csv(data_path).values
     data_missing = pd.read_csv(corrupt_data_path).values
-    non_missing_row_ind = np.where(np.isfinite(np.sum(data_missing, axis=1)))
+    non_missing_row_ind = np.where(np.isfinite(data_missing).all(axis=1))
     na_ind = np.where(np.isnan(data_missing))
     sc = StandardScaler()
     data_missing_complete = np.copy(data_missing[non_missing_row_ind[0], :])
@@ -31,11 +31,12 @@ def get_scaled_data():
     data_missing = sc.transform(data_missing)
     del data_missing_complete
     data = np.array(np.copy(data[:,4:]),dtype='float64')
+    data = sc.transform(data)
     return data, data_missing
 
 
 def apply_scaler(data, data_missing, return_scaler=False):
-    non_missing_row_ind = np.where(np.isfinite(np.sum(data_missing, axis=1)))
+    non_missing_row_ind = np.where(np.isfinite(data_missing).all(axis=1))
     na_ind = np.where(np.isnan(data_missing))
     sc = StandardScaler()
     data_missing_complete = np.copy(data_missing[non_missing_row_ind[0], :])

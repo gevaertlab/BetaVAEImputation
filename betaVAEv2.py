@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 import tensorflow as tf
 # from tf.keras import layers
+from sklearn.metrics import r2_score
 
 from lib.helper_functions import get_scaled_data
 
@@ -14,6 +15,14 @@ network_architecture = \
          n_z=200,
          n_input=17175
          )  # dimensionality of latent space
+
+def calculate_losses(true, preds):
+    return {
+        "RMSE": np.sqrt(((true - preds) ** 2).mean()),
+        "MAE": np.abs(true - preds).mean(),
+        "r2_score": r2_score(true, preds)
+
+    }
 
 class Sampling(tf.keras.layers.Layer):
     """Uses (z_mean, z_log_var) to sample z (the latent representation)."""
@@ -189,20 +198,30 @@ class VariationalAutoencoderV2(tf.keras.Model):
         return x_hat_mu # todo consider whether it should sample from x_hat_mu here
 
 
-    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE'):
+    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
         losses = []
-        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))
-        data_miss_val = np.copy(data_corrupt[missing_row_ind[0], :])
-        true_values_for_missing = data_complete[missing_row_ind[0], :]
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))[0]
+        data_miss_val = np.copy(data_corrupt[missing_row_ind, :])
+        true_values_for_missing = data_complete[missing_row_ind, :]
         na_ind = np.where(np.isnan(data_miss_val))
-        data_miss_val[na_ind] = 0
+        data_miss_val[na_ind] = 0 # todo should the zero be imputed after the scaling is already done?
         for i in range(n_recycles):
             data_reconstruct = self.reconstruct(data_miss_val)
             data_miss_val[na_ind] = data_reconstruct[na_ind]
+            if scaler is not None:
+                predictions = np.copy(scaler.inverse_transform(data_reconstruct)[na_ind])
+                target_values = np.copy(scaler.inverse_transform(true_values_for_missing)[na_ind])
+            else:
+                predictions = np.copy(data_reconstruct[na_ind])
+                target_values = np.copy(true_values_for_missing[na_ind])
+
             if loss == 'RMSE':
-                losses.append(np.sqrt(((true_values_for_missing[na_ind] - data_reconstruct[na_ind])**2).mean()))
+                losses.append(np.sqrt(((target_values - predictions)**2).mean()))
             elif loss == 'MAE':
-                losses.append(np.abs(true_values_for_missing[na_ind] - data_reconstruct[na_ind]).mean())
+                losses.append(np.abs(target_values - predictions).mean())
+            elif loss =='all':
+                multi_loss_dict = calculate_losses(target_values, predictions)
+                losses.append(multi_loss_dict)
         return losses
 
 def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
