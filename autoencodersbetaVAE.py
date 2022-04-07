@@ -241,9 +241,9 @@ class VariationalAutoencoder(object):
             # calling x_hat_mean and x_hat_log_sigma_sq actually pulls a random sample from z via re-parametrization trick and then feeds it through the decoder 
             # And then computes the distribution and pulls a sample from this
             # Obtain a random sample from z, x_hat_mean and x_hat_log_sigma_sq given our corrupt data
-            x_hat_mean, x_hat_log_sigma_sq, z_samp, z_mean, z_log_sigma_sq = self.sess.run([self.x_hat_mean, self.x_hat_log_sigma_sq, self.z, self.z_mean, self.z_log_sigma_sq],
-                             feed_dict={self.x: data_miss_val}) 
-
+            x_hat_mean, x_hat_log_sigma_sq, z_samp, z_mean, z_log_sigma_sq = self.sess.run([self.x_hat_mean,
+                                                                                            self.x_hat_log_sigma_sq,
+                                                                                            self.z, self.z_mean, self.z_log_sigma_sq],  feed_dict={self.x: data_miss_val})
             X_hat_distribution = Normal(loc=x_hat_mean,
                                     scale=tf.sqrt(tf.exp(x_hat_log_sigma_sq)))
 
@@ -271,7 +271,7 @@ class VariationalAutoencoder(object):
 
             ## To calculate acceptance probability, we need to calculate various metrics at each imputation iteration
             # Store z_samp from this iteration
-            if i == 0:
+            if i < 3:
                 # First iteration you must set z_samp to the first sampling
                 z_s_minus_1 = z_samp
                 x_hat_mean_s_minus_1 = x_hat_mean
@@ -294,8 +294,7 @@ class VariationalAutoencoder(object):
                 log_p_Y_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distr_s_minus_1.log_prob(data_miss_val))))
 
                 # Acceptance probability of sample z_star
-                a_prob = self.sess.run(tf.exp(log_p_Y_z_star+log_p_z_star+log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1+log_p_z_s_minus_1+log_q_z_star)))
-
+                a_prob = np.exp(log_p_Y_z_star + log_p_z_star + log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1 + log_p_z_s_minus_1 + log_q_z_star))
                 # If we accept the new sample, set (s-1) z-sample as the new previous sampling
                 if np.random.uniform() < a_prob:
                     print("new sample accepted with acceptance probability", a_prob)
