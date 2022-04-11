@@ -2,6 +2,7 @@ import datetime
 import pickle
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 # from tf.keras import layers
 from sklearn.metrics import r2_score
 
@@ -94,7 +95,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
     def create_probabalistic_decoder(self):
         n_hidden_gener_1 = self.network_architecture['n_hidden_gener_1']
-        n_hidden_gener_2 = self.network_architecture['n_hidden_gener_1']
+        n_hidden_gener_2 = self.network_architecture['n_hidden_gener_1'] # todo: same number of weights in first 2 layers?
         latent_inputs = tf.keras.Input(shape=(self.latent_dim,))
         h1 = tf.keras.layers.Dense(n_hidden_gener_1, activation="relu", name='h1')(latent_inputs)
         n1 = tf.keras.layers.LayerNormalization()(h1)
@@ -183,11 +184,11 @@ class VariationalAutoencoderV2(tf.keras.Model):
         }
     def predict(self, x):
         z_mean, z_log_var, z = self.encoder(x)
+        x_hat_mean, x_hat_log_sigma_sq = self.decoder(z_mean)
         if self.proba_output:
-            x_hat_mean, x_hat_log_sigma_sq = self.decoder(z_mean)
-            return x_hat_mean
+            return x_hat_mean, x_hat_log_sigma_sq
         else:
-            return self.decoder(z_mean)
+            return x_hat_mean
 
     def reconstruct(self, data, sample = 'mean'):
         z_mean, z_log_var, z = self.encoder(data)
@@ -223,6 +224,20 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 multi_loss_dict = calculate_losses(target_values, predictions)
                 losses.append(multi_loss_dict)
         return losses
+
+    def impute_multiple(self, data_corrupt, max_iter=10):
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt,axis=1)))
+        data_miss_val = data_corrupt[missing_row_ind[0],:]
+        na_ind = np.where(np.isnan(data_miss_val))
+        data_miss_val[na_ind] = 0
+        for i in range(max_iter):
+            print("Running imputation iteration", i+1)
+            z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
+            x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp) # todo check if this equivalent to the operation in V1
+            X_hat_distribution = tfp.distributions.Normal(loc=[1,2,3], scale=[3,2,1])
+            x_hat_sample = X_hat_distribution.sample()
+
+        pass
 
 def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
                   decoder_path='output/20220405-14:37:31_decoder.keras',

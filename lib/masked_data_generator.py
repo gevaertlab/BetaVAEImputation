@@ -28,7 +28,6 @@ class DataGenerator(keras.utils.Sequence):
         self.n_rows_to_add_null = int(len(self.x_train) * prop_missing_patients)
         self.n_cols_to_null = int(self.n_cols * prop_missing_features)
         self.change_mask_and_shuffle()
-        bp=True
         print(f'x_train.shape;', self.x_train.shape)
 
     def __len__(self):

@@ -213,7 +213,7 @@ class VariationalAutoencoder(object):
         return data_imputed, convergence
 
 
-    def impute_multiple(self, data_corrupt, max_iter = 10):
+    def impute_multiple(self, data_corrupt, max_iter=10):
         """
         Return a random sample from the decoder given a random sample from the latent distribution conditioned on data_corrupt
         """
