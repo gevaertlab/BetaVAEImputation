@@ -13,7 +13,7 @@ if __name__=="__main__":
         print(logical_devices)
     except:
         pass
-    data, data_missing = get_scaled_data()
+    data, data_missing = get_scaled_data(put_nans_back=False)
     n_row = data.shape[1]
     network_architecture = \
         dict(n_hidden_recog_1=6000,  # 1st layer encoder neurons
@@ -31,9 +31,12 @@ if __name__=="__main__":
     else:
         encoder, decoder = None, None
     vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=100, pretrained_encoder=encoder, pretrained_decoder=decoder)
-    vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0))
-    history = vae.fit(x=data, y=data, epochs=100, batch_size=256) #  callbacks=[tensorboard_callback]
-    decoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_decoder.keras"
-    encoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_encoder.keras"
-    vae.encoder.save(encoder_save_path)
-    vae.decoder.save(decoder_save_path)
+    vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.00001, clipnorm=1.0))
+    model_savepath = 'output/non_masked/'
+    epochs = 10
+    for i in range(35):
+        history = vae.fit(x=data_missing, y=data_missing, epochs=epochs, batch_size=256) #  callbacks=[tensorboard_callback]
+        decoder_save_path = f"{model_savepath}{datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')}_decoder_epoch{(i+1)*epochs}.keras"
+        encoder_save_path = f"{model_savepath}{datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')}_encoder_epoch{(i+1)*epochs}.keras"
+        vae.encoder.save(encoder_save_path)
+        vae.decoder.save(decoder_save_path)

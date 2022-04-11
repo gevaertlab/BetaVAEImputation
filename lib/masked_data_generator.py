@@ -8,17 +8,6 @@ from lib.helper_functions import get_scaled_data
 from betaVAEv2 import load_model_v2
 
 
-
-# def load_data():
-#     x = pd.read_csv('../data/LGGGBM_missing_10perc_trial1.csv')
-#     y = pd.read_csv('../data/data_complete.csv')
-#     x, y = apply_scaler(y, x, return_scaler=False)
-#     return x, y
-
-
-
-
-
 class DataGenerator(keras.utils.Sequence):
     def __init__(self, x_train, y_train, batchSize, prop_missing_patients=0.2, prop_missing_features=0.1): # you can add parameters here
         self.batchSize = batchSize
