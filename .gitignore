@@ -11,3 +11,4 @@ output/*
 venv/
 top_up_train_saved_model.py
 lib/__pycache__/*
+*.png

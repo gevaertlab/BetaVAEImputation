@@ -88,3 +88,6 @@ def load_saved_model(config_path = 'JW_config_VAE.json'):
                                  batch_size=batch_size, istrain=False, restore_path=rp, beta=beta)
     os.chdir(running_directory)
     return vae
+
+def get_accuracy_metrics(missing, complete, imputed):
+    pass

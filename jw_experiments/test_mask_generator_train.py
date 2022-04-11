@@ -2,7 +2,7 @@ import datetime
 import tensorflow as tf
 from tensorflow import keras
 from lib.helper_functions import get_scaled_data
-from betaVAEv2 import VariationalAutoencoderV2
+from betaVAEv2 import VariationalAutoencoderV2, Sampling
 
 if __name__=="__main__":
 
