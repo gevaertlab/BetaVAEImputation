@@ -52,8 +52,7 @@ if __name__ == '__main__':
         imp_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/imputed_datasets/"
         conv_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/convergence_plots/"
         na_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/NA_indices/"
-        
-	    # if these directories don't exist, make them
+        # if these directories don't exist, make them
         os.makedirs(imp_out, exist_ok=True)
         os.makedirs(conv_out, exist_ok=True)
         os.makedirs(na_out, exist_ok=True)
