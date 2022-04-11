@@ -12,6 +12,8 @@ data_path = config["data_path"]
 corrupt_data_path = config["corrupt_data_path"]
 from sklearn.preprocessing import StandardScaler
 
+
+
 def get_scaled_data(return_scaler=False, put_nans_back=False):
     for _ in range(3):
         if os.getcwd().split('/')[-1] == 'BetaVAEImputation':
