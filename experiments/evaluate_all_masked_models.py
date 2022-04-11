@@ -6,11 +6,11 @@ from betaVAEv2 import VariationalAutoencoderV2, Sampling, network_architecture
 results = {}
 os.chdir('..')
 data, data_missing, sc = get_scaled_data(return_scaler=True, put_nans_back=True)
-for dir in sorted(os.listdir('output/'), reverse=True):
-    if not os.path.isdir('output/' + dir) or 'epoch' not in dir:
+for dir in sorted(os.listdir('output/non_masked/'), reverse=True):
+    if not os.path.isdir('output/non_masked' + dir) or 'epoch' not in dir:
         continue
-    encoder_path = 'output/' + dir + '/encoder_masked.keras'
-    decoder_path = 'output/' + dir + '/decoder_masked.keras'
+    encoder_path = 'output/' + dir + '/encoder.keras'
+    decoder_path = 'output/' + dir + '/decoder.keras'
     epochs = dir.split('_')[-1]
     loss = int(dir.split('_')[1][4:])
     encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
