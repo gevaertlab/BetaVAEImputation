@@ -7,15 +7,15 @@ import matplotlib.pyplot as plt
 results = {}
 os.chdir('..')
 data, data_missing, sc = get_scaled_data(return_scaler=True, put_nans_back=True)
-root_dir = 'output/non_masked/'
+root_dir = 'output/non_masked_beta1_lr1e-05/'
 for dir in sorted(os.listdir(root_dir), reverse=True):
     if not os.path.isdir(root_dir + dir) or 'epoch' not in dir:
         continue
     encoder_path = root_dir + dir + '/encoder.keras'
     decoder_path = root_dir + dir + '/decoder.keras'
-    epochs = int(dir.split('_')[-1])
+    epochs = int(dir.split('_')[1])
     try:
-        loss = int(dir.split('_')[1][4:])
+        loss = int(dir.split('_')[-1][4:])
     except:
         loss = None
     encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
