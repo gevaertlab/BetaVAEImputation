@@ -22,21 +22,25 @@ if __name__=="__main__":
              n_hidden_gener_2=6000,  # 2nd layer decoder neurons
              n_input=n_row,  # data input size
              n_z=200)  # dimensionality of latent space
-    load_pretrained = False
+    load_pretrained = True
     if load_pretrained:
-        encoder_path = ''
-        decoder_path = ''
+        encoder_path = 'output/non_masked_beta1_lr1e-05/epoch20_loss21660.0/encoder.keras'
+        decoder_path = 'output/non_masked_beta1_lr1e-05/epoch20_loss21660.0/decoder.keras'
         encoder = keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
         decoder = keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
     else:
         encoder, decoder = None, None
-    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=100, pretrained_encoder=encoder, pretrained_decoder=decoder)
+    beta = 1
+    lr = 0.00001
+    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=beta, pretrained_encoder=encoder, pretrained_decoder=decoder)
     vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.00001, clipnorm=1.0))
-    model_savepath = 'output/non_masked/'
+    model_savepath = f'output/non_masked_beta{beta}_lr{lr}/'
     epochs = 10
     for i in range(35):
         history = vae.fit(x=data_missing, y=data_missing, epochs=epochs, batch_size=256) #  callbacks=[tensorboard_callback]
-        decoder_save_path = f"{model_savepath}{datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')}_decoder_epoch{(i+1)*epochs}.keras"
-        encoder_save_path = f"{model_savepath}{datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')}_encoder_epoch{(i+1)*epochs}.keras"
+        loss = round(history.history['loss'][-1] , 0)
+        outdir = model_savepath + f"epoch_{(i+1)*epochs}_loss_{loss}/"
+        decoder_save_path = f"{outdir}decoder.keras"
+        encoder_save_path = f"{outdir}encoder.keras"
         vae.encoder.save(encoder_save_path)
         vae.decoder.save(decoder_save_path)

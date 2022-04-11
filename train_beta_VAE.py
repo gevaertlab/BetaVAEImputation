@@ -76,10 +76,10 @@ if __name__ == '__main__':
                 
         # define dict for network structure:
         network_architecture = \
-            dict(n_hidden_recog_1=Encoder_hidden1, # 1st layer encoder neurons
-                 n_hidden_recog_2=Encoder_hidden2, # 2nd layer encoder neurons
-                 n_hidden_gener_1=Decoder_hidden1, # 1st layer decoder neurons
-                 n_hidden_gener_2=Decoder_hidden2, # 2nd layer decoder neurons
+            dict(n_hidden_recog_1=Encoder_hidden1, # 1st layer encoder neurons 2000
+                 n_hidden_recog_2=Encoder_hidden2, # 2nd layer encoder neurons 6000
+                 n_hidden_gener_1=Decoder_hidden1, # 1st layer decoder neurons 6000
+                 n_hidden_gener_2=Decoder_hidden2, # 2nd layer decoder neurons 2000
                  n_input=n_row, # data input size
                  n_z=latent_size)  # dimensionality of latent space
         

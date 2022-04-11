@@ -205,7 +205,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
         data_miss_val = np.copy(data_corrupt[missing_row_ind, :])
         true_values_for_missing = data_complete[missing_row_ind, :]
         na_ind = np.where(np.isnan(data_miss_val))
-        data_miss_val[na_ind] = 0 # todo should the zero be imputed after the scaling is already done?
+        data_miss_val[na_ind] = 0
         for i in range(n_recycles):
             data_reconstruct = self.reconstruct(data_miss_val).numpy()
             data_miss_val[na_ind] = data_reconstruct[na_ind]

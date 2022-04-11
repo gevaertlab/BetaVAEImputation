@@ -2,17 +2,22 @@ import os
 import tensorflow as tf
 from lib.helper_functions import get_scaled_data
 from betaVAEv2 import VariationalAutoencoderV2, Sampling, network_architecture
+import matplotlib.pyplot as plt
 
 results = {}
 os.chdir('..')
 data, data_missing, sc = get_scaled_data(return_scaler=True, put_nans_back=True)
-for dir in sorted(os.listdir('output/non_masked/'), reverse=True):
-    if not os.path.isdir('output/non_masked' + dir) or 'epoch' not in dir:
+root_dir = 'output/non_masked/'
+for dir in sorted(os.listdir(root_dir), reverse=True):
+    if not os.path.isdir(root_dir + dir) or 'epoch' not in dir:
         continue
-    encoder_path = 'output/' + dir + '/encoder.keras'
-    decoder_path = 'output/' + dir + '/decoder.keras'
-    epochs = dir.split('_')[-1]
-    loss = int(dir.split('_')[1][4:])
+    encoder_path = root_dir + dir + '/encoder.keras'
+    decoder_path = root_dir + dir + '/decoder.keras'
+    epochs = int(dir.split('_')[-1])
+    try:
+        loss = int(dir.split('_')[1][4:])
+    except:
+        loss = None
     encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
     decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
 
@@ -25,3 +30,9 @@ for dir in sorted(os.listdir('output/non_masked/'), reverse=True):
     print(epochs, mae)
 
 bp=True
+plt.plot([int(e) for e in sorted(results.keys())], [results[e]['mae'] for e in sorted(results)])
+plt.title('loss over epochs')
+plt.xlabel('epochs')
+plt.ylabel('MAE')
+plt.show()
+plt.savefig(root_dir+'plotted_loss_over_epochs')
