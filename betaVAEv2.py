@@ -201,13 +201,13 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
     def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
         losses = []
-        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt, axis=1)))[0]
+        missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))[0]
         data_miss_val = np.copy(data_corrupt[missing_row_ind, :])
         true_values_for_missing = data_complete[missing_row_ind, :]
         na_ind = np.where(np.isnan(data_miss_val))
         data_miss_val[na_ind] = 0 # todo should the zero be imputed after the scaling is already done?
         for i in range(n_recycles):
-            data_reconstruct = self.reconstruct(data_miss_val)
+            data_reconstruct = self.reconstruct(data_miss_val).numpy()
             data_miss_val[na_ind] = data_reconstruct[na_ind]
             if scaler is not None:
                 predictions = np.copy(scaler.inverse_transform(data_reconstruct)[na_ind])
@@ -281,7 +281,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
 def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
                   decoder_path='output/20220405-14:37:31_decoder.keras',
-                  network_architecture = network_architecture, load_pretrained=True
+                  network_architecture = network_architecture, load_pretrained=True, beta=1
                   ):
 
     if load_pretrained:
@@ -290,7 +290,7 @@ def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
     else:
         encoder = None
         decoder = None
-    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=1, pretrained_encoder=encoder,
+    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=beta, pretrained_encoder=encoder,
                                    pretrained_decoder=decoder)
     return vae
 

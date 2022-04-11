@@ -6,7 +6,7 @@ if __name__=="__main__":
     decoder_path = '../output/20220405-15:14:02_decoder.keras'
     encoder_path = '../output/20220405-15:14:02_encoder.keras'
     model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
-    data, data_missing = get_scaled_data(leave_nan=True)
+    data, data_missing = get_scaled_data(put_nans_back=True)
     m_datasets = 1
     for i in range(m_datasets):
         index_changes = model.impute_multiple(data_corrupt=data_missing, max_iter=1000)

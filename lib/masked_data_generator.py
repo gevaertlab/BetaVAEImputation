@@ -1,3 +1,4 @@
+import os
 import datetime
 import pickle
 import numpy as np
@@ -58,14 +59,21 @@ class DataGenerator(keras.utils.Sequence):
         self.shuffle()
 
 if __name__ == "__main__":
+    epochs = 10
+    lr = 0.00005
+    beta = 1
     data, data_missing = get_scaled_data()
     training_generator = DataGenerator(x_train=data_missing, y_train=np.copy(data_missing), batchSize=250)
-    model = load_model_v2(load_pretrained=False)
-    model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.00005, clipnorm=1.0))
-    history = model.fit(training_generator, use_multiprocessing=True, workers=4, epochs=350)
-    with open('output/masked_train_history_dict.pickle', 'wb') as file_handle:
-        pickle.dump(history.history, file_handle)
-    decoder_save_path = f"output/masked_{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_decoder.keras"
-    encoder_save_path = f"output/masked_{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_encoder.keras"
-    model.encoder.save(encoder_save_path)
-    model.decoder.save(decoder_save_path)
+    model = load_model_v2(load_pretrained=False, beta=1)
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
+    for i in range(45):
+        history = model.fit(training_generator, use_multiprocessing=True, workers=4, epochs=epochs)
+        final_loss = int(history.history['loss'][-1])
+        output_dir = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_loss{final_loss}_beta{str(beta).replace('.','p')}_lr{str(lr).replace('.', 'p')}_epoch{epochs * i+1}/"
+        os.mkdir(output_dir)
+        with open(output_dir+'masked_train_history_dict.pickle', 'wb') as file_handle:
+            pickle.dump(history.history, file_handle)
+        decoder_save_path = f"{output_dir}decoder_masked.keras"
+        encoder_save_path = f"{output_dir}encoder_masked.keras"
+        model.encoder.save(encoder_save_path)
+        model.decoder.save(decoder_save_path)
