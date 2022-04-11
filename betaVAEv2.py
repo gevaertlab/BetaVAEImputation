@@ -237,7 +237,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             print("Running imputation iteration", i+1)
             z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
             x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp) # todo check if this equivalent to the operation in V1
-            x_hat_sigma =  np.exp(0.5 * x_hat_log_sigma_sq)
+            x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
             X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
             x_hat_sample = X_hat_distribution.sample().numpy()
             X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
@@ -248,7 +248,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 x_hat_mean_s_minus_1 = x_hat_mean
                 x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
                 # Replace na_ind with x_hat_sample from first sampling
-                data_miss_val[na_ind] = x_hat_sample[na_ind]
+                data_miss_val[na_ind] = x_hat_sample[na_ind] # todo test what happens if the mean is imputed at this step
             else:
                 # Define distributions
                 z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
@@ -275,7 +275,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                     x_hat_log_sigma_sq_s_minus_1[acceptance_indicies] = x_hat_log_sigma_sq[acceptance_indicies]
                     na_ind_of_accepted = np.where(np.isnan(data_miss_val[acceptance_indicies]))
                     data_miss_val[acceptance_indicies][na_ind_of_accepted] = x_hat_sample[acceptance_indicies][na_ind_of_accepted]
-        return all_changed_indicies
+        return all_changed_indicies, data_miss_val
 
 
 
