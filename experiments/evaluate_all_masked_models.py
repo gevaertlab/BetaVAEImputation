@@ -2,15 +2,17 @@ import os
 import tensorflow as tf
 from lib.helper_functions import get_scaled_data
 from betaVAEv2 import VariationalAutoencoderV2, Sampling, network_architecture
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 results = {}
 os.chdir('..')
+model_dir = 'output/dropout_missing_0p6_0p3/'
 data, data_missing, sc = get_scaled_data(return_scaler=True, put_nans_back=True)
-for dir in sorted(os.listdir('output/'), reverse=True):
-    if not os.path.isdir('output/' + dir) or 'epoch' not in dir:
+for dir in sorted(os.listdir(model_dir), reverse=False):
+    if not os.path.isdir(model_dir + dir) or 'epoch' not in dir:
         continue
-    encoder_path = 'output/' + dir + '/encoder_masked.keras'
-    decoder_path = 'output/' + dir + '/decoder_masked.keras'
+    encoder_path = model_dir + dir + '/encoder_masked.keras'
+    decoder_path = model_dir + dir + '/decoder_masked.keras'
+    print(encoder_path)
     epochs = dir.split('_')[-1]
     loss = int(dir.split('_')[1][4:])
     encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})

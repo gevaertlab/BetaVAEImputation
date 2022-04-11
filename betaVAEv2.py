@@ -36,13 +36,14 @@ class Sampling(tf.keras.layers.Layer):
 
 class VariationalAutoencoderV2(tf.keras.Model):
     def __init__(self, network_architecture=None, proba_output=True, beta=1,
-                 pretrained_encoder=None, pretrained_decoder=None, **kwargs):
+                 pretrained_encoder=None, pretrained_decoder=None, dropout=False, **kwargs):
         super(VariationalAutoencoderV2, self).__init__(**kwargs)
         self.latent_dim = network_architecture['n_z']
         self.n_input_nodes = network_architecture['n_input']
         self.network_architecture = network_architecture
         self.proba_output = proba_output
         self.beta = beta
+        self.dropout = dropout
         if pretrained_encoder is not None:
             self.encoder = pretrained_encoder
         else:
@@ -64,8 +65,12 @@ class VariationalAutoencoderV2(tf.keras.Model):
         encoder_inputs = tf.keras.Input(shape=self.n_input_nodes)
         h1 = tf.keras.layers.Dense(units=n_hidden_recog_1, activation="relu", name='h1')(encoder_inputs)
         n1 = tf.keras.layers.LayerNormalization(name='norm1')(h1)
+        if self.dropout:
+            n1 = tf.keras.layers.Dropout(0.1)(n1)
         h2 = tf.keras.layers.Dense(units=n_hidden_recog_2, name='h2')(n1)
         n2 = tf.keras.layers.LayerNormalization(name='norm2')(h2)
+        if self.dropout:
+            n2 = tf.keras.layers.Dropout(0.1)(n2)
         z_mean = tf.keras.layers.Dense(self.latent_dim, name="z_mean")(n2)
         z_log_var = tf.keras.layers.Dense(self.latent_dim, name="z_log_var")(h2)
         z = Sampling()([z_mean, z_log_var])
@@ -98,8 +103,12 @@ class VariationalAutoencoderV2(tf.keras.Model):
         latent_inputs = tf.keras.Input(shape=(self.latent_dim,))
         h1 = tf.keras.layers.Dense(n_hidden_gener_1, activation="relu", name='h1')(latent_inputs)
         n1 = tf.keras.layers.LayerNormalization()(h1)
+        if self.dropout:
+            n1 = tf.keras.layers.Dropout(0.1)(n1)
         h2 = tf.keras.layers.Dense(n_hidden_gener_2, activation="relu", name='h2')(n1)
         n2 = tf.keras.layers.LayerNormalization()(h2)
+        if self.dropout:
+            n2 = tf.keras.layers.Dropout(0.1)(n2)
         x_hat_mean = tf.keras.layers.Dense(self.n_input_nodes, name='x_hat_mean')(n2)
         x_hat_log_sigma_sq = tf.keras.layers.Dense(self.n_input_nodes, name='x_hat_log_sigma_sq')(h2)
         decoder = tf.keras.Model(latent_inputs, [x_hat_mean, x_hat_log_sigma_sq], name="decoder")
@@ -150,6 +159,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
     def train_step(self, data):
         x, y = data
+        tf.print(x[0, :10])
+        tf.print(y[0, :10])
         with tf.GradientTape() as tape:
             z_mean, z_log_var, z = self.encoder(x)
             if self.proba_output:
@@ -181,7 +192,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             "reconstruction_loss": self.reconstruction_loss_tracker.result(),
             "kl_loss": self.kl_loss_tracker.result(),
         }
-    def predict(self, x):
+    def predict(self, x): # todo remove one function (either predict or reconstruct as they do the same thing)
         z_mean, z_log_var, z = self.encoder(x)
         if self.proba_output:
             x_hat_mean, x_hat_log_sigma_sq = self.decoder(z_mean)
@@ -195,7 +206,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             x_hat_mu, x_hat_log_var = self.decoder(z)
         else:
             x_hat_mu, x_hat_log_var = self.decoder(z_mean)
-        return x_hat_mu # todo consider whether it should sample from x_hat_mu here
+        return x_hat_mu # todo when implementing multiple imputation, will have to sample from N(x_hat_mu, x_hat_log_var)
 
 
     def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
@@ -226,8 +237,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
 def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
                   decoder_path='output/20220405-14:37:31_decoder.keras',
-                  network_architecture = network_architecture, load_pretrained=True, beta=1
-                  ):
+                  network_architecture = network_architecture, load_pretrained=True, beta=1, dropout=False,
+                  **kwargs): # todo put dropout in network architecture
 
     if load_pretrained:
         encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
@@ -236,7 +247,7 @@ def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
         encoder = None
         decoder = None
     vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=beta, pretrained_encoder=encoder,
-                                   pretrained_decoder=decoder)
+                                   pretrained_decoder=decoder, dropout=dropout, **kwargs)
     return vae
 
 if __name__=="__main__":

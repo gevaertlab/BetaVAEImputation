@@ -8,17 +8,6 @@ from lib.helper_functions import get_scaled_data
 from betaVAEv2 import load_model_v2
 
 
-
-# def load_data():
-#     x = pd.read_csv('../data/LGGGBM_missing_10perc_trial1.csv')
-#     y = pd.read_csv('../data/data_complete.csv')
-#     x, y = apply_scaler(y, x, return_scaler=False)
-#     return x, y
-
-
-
-
-
 class DataGenerator(keras.utils.Sequence):
     def __init__(self, x_train, y_train, batchSize, prop_missing_patients=0.2, prop_missing_features=0.1): # you can add parameters here
         self.batchSize = batchSize
@@ -63,17 +52,21 @@ if __name__ == "__main__":
     lr = 0.00005
     beta = 1
     data, data_missing = get_scaled_data()
-    training_generator = DataGenerator(x_train=data_missing, y_train=np.copy(data_missing), batchSize=250)
-    model = load_model_v2(load_pretrained=False, beta=1)
+    training_generator = DataGenerator(x_train=data_missing, y_train=np.copy(data_missing), batchSize=250,
+                                       prop_missing_patients=0.6, prop_missing_features=0.3)
+    model = load_model_v2(load_pretrained=False, beta=1, dropout=True)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
     for i in range(45):
         history = model.fit(training_generator, use_multiprocessing=True, workers=4, epochs=epochs)
-        final_loss = int(history.history['loss'][-1])
-        output_dir = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_loss{final_loss}_beta{str(beta).replace('.','p')}_lr{str(lr).replace('.', 'p')}_epoch{epochs * i+1}/"
-        os.mkdir(output_dir)
-        with open(output_dir+'masked_train_history_dict.pickle', 'wb') as file_handle:
-            pickle.dump(history.history, file_handle)
-        decoder_save_path = f"{output_dir}decoder_masked.keras"
-        encoder_save_path = f"{output_dir}encoder_masked.keras"
-        model.encoder.save(encoder_save_path)
-        model.decoder.save(decoder_save_path)
+        if i > 4:
+            final_loss = int(history.history['loss'][-1])
+            base_output_dir = "output/dropout_missing_0p6_0p3/"
+            os.makedirs(base_output_dir, exist_ok=True)
+            output_dir = f"{base_output_dir}{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_loss{final_loss}_beta{str(beta).replace('.','p')}_lr{str(lr).replace('.', 'p')}_epoch{epochs * (i+1)}/"
+            os.mkdir(output_dir)
+            with open(output_dir+'masked_train_history_dict.pickle', 'wb') as file_handle:
+                pickle.dump(history.history, file_handle)
+            decoder_save_path = f"{output_dir}decoder_masked.keras"
+            encoder_save_path = f"{output_dir}encoder_masked.keras"
+            model.encoder.save(encoder_save_path)
+            model.decoder.save(decoder_save_path)
