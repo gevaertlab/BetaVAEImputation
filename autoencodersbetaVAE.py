@@ -257,10 +257,8 @@ class VariationalAutoencoder(object):
             X_hat_distribution_na = Normal(loc = x_hat_mean[na_ind], scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq[na_ind])))
 
             # Compute negative log likelihood of X hat distribution from data_miss_val compared to _hat_sample
-            log_likl_na = -tf.reduce_sum(self.sess.run(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])))
+            sum_log_likl = self.sess.run(-tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])))
 
-            # Compute sum across all na ind of log likelihood between previous and current iteration
-            sum_log_likl = self.sess.run(log_likl_na)
             convergence_loglik.append(sum_log_likl)
 
             # Store the largest value imputed at the NA indices
@@ -285,13 +283,17 @@ class VariationalAutoencoder(object):
                 z_prior = Normal(loc = np.zeros(z_mean.shape), scale = np.ones(z_mean.shape))
                 X_hat_distr_s_minus_1 = Normal(loc = x_hat_mean_s_minus_1, scale = tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
 
-                # Calculate log likelihood for previous and new sample to calculate acceptance probability with
-                log_q_z_star = self.sess.run(tf.reduce_sum(self.sess.run(z_Distribution.log_prob(z_samp))))
-                log_q_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(z_Distribution.log_prob(z_s_minus_1))))
-                log_p_z_star = self.sess.run(tf.reduce_sum(self.sess.run(z_prior.log_prob(z_samp))))
-                log_p_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(z_prior.log_prob(z_s_minus_1))))
-                log_p_Y_z_star = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distribution.log_prob(data_miss_val))))
-                log_p_Y_z_s_minus_1 = self.sess.run(tf.reduce_sum(self.sess.run(X_hat_distr_s_minus_1.log_prob(data_miss_val))))
+
+                # Calculate log likelihood for previous and new sample to calculate acceptance probability with the following
+                log_q_z_star, log_q_z_s_minus_1, log_p_z_star, log_p_z_s_minus_1, log_p_Y_z_star, log_p_Y_z_s_minus_1, =\
+                                    self.sess.run(
+                                    [tf.reduce_sum(z_Distribution.log_prob(z_samp)), # log_q_z_star
+                                    tf.reduce_sum(z_Distribution.log_prob(z_s_minus_1)), # log_q_z_s_minus_1
+                                    tf.reduce_sum(z_prior.log_prob(z_samp)), # log_p_z_star
+                                    tf.reduce_sum(z_prior.log_prob(z_s_minus_1)), # log_p_z_s_minus_1
+                                    tf.reduce_sum(X_hat_distribution.log_prob(data_miss_val)), # log_p_Y_z_star
+                                    tf.reduce_sum(X_hat_distr_s_minus_1.log_prob(data_miss_val))]
+                                    ) # log_p_Y_z_s_minus_1
 
                 # Acceptance probability of sample z_star
                 a_prob = np.exp(log_p_Y_z_star + log_p_z_star + log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1 + log_p_z_s_minus_1 + log_q_z_star))
