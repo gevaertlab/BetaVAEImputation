@@ -96,17 +96,16 @@ def load_saved_model(config_path = 'JW_config_VAE.json'):
     return vae
 
 def get_accuracy_metrics(complete, missing, imputed, scaler):
-    missing_rows = np.where(np.isnan(missing).any(axis=0))[0]
     missing_subjects = np.copy(missing)
-    missing_subjects_complete = complete[missing_rows]
     na_ind = np.isnan(missing_subjects)
     missing_subjects[na_ind] = imputed
     missing_subjects = scaler.inverse_transform(missing_subjects)
-    missing_subjects_complete = scaler.inverse_transform(missing_subjects_complete)
-    errors = missing_subjects[na_ind] - missing_subjects_complete[na_ind]
+    complete = scaler.inverse_transform(complete)
+    errors = missing_subjects[na_ind] - complete[na_ind]
     plt.hist(errors, bins=60)
     plt.show()
     mae = np.abs(errors).mean()
+    print('MAE of the multiple imputed averages:', mae)
     return mae
 
 
