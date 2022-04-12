@@ -1,4 +1,5 @@
 import os
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import json
@@ -94,5 +95,19 @@ def load_saved_model(config_path = 'JW_config_VAE.json'):
     os.chdir(running_directory)
     return vae
 
-def get_accuracy_metrics(missing, complete, imputed):
-    pass
+def get_accuracy_metrics(complete, missing, imputed, scaler):
+    missing_rows = np.where(np.isnan(missing).any(axis=0))[0]
+    missing_subjects = np.copy(missing)
+    missing_subjects_complete = complete[missing_rows]
+    na_ind = np.isnan(missing_subjects)
+    missing_subjects[na_ind] = imputed
+    missing_subjects = scaler.inverse_transform(missing_subjects)
+    missing_subjects_complete = scaler.inverse_transform(missing_subjects_complete)
+    errors = missing_subjects[na_ind] - missing_subjects_complete[na_ind]
+    plt.hist(errors, bins=60)
+    plt.show()
+    mae = np.abs(errors).mean()
+    return mae
+
+
+

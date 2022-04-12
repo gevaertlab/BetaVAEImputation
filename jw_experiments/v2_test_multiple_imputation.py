@@ -2,7 +2,15 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 from betaVAEv2 import load_model_v2
-from lib.helper_functions import get_scaled_data
+from lib.helper_functions import get_scaled_data, get_accuracy_metrics
+
+with open('../output/imputed_beta100/multi_impute.pickle', 'rb') as filehandle:
+    imputed_vals = np.array(pickle.load(filehandle))
+
+average_imputed = imputed_vals.mean(axis=0)
+data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
+mae = get_accuracy_metrics(data, data_missing, average_imputed, scaler)
+bp = True
 
 if __name__=="__main__":
     decoder_path = '../output/non_masked_beta_100_lr1e-05/epoch_160/decoder.keras'
