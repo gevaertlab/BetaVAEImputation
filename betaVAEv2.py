@@ -2,6 +2,7 @@ import datetime
 import pickle
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 # from tf.keras import layers
 from sklearn.metrics import r2_score
 
@@ -86,7 +87,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
     def create_basic_decoder(self):
         n_hidden_gener_1 = self.network_architecture['n_hidden_gener_1']
-        n_hidden_gener_2 = self.network_architecture['n_hidden_gener_1']
+        n_hidden_gener_2 = self.network_architecture['n_hidden_gener_2']
         latent_inputs = tf.keras.Input(shape=(self.latent_dim,))
         h1 = tf.keras.layers.Dense(n_hidden_gener_1, activation="relu")(latent_inputs)
         n1 = tf.keras.layers.LayerNormalization()(h1)
@@ -99,7 +100,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
     def create_probabalistic_decoder(self):
         n_hidden_gener_1 = self.network_architecture['n_hidden_gener_1']
-        n_hidden_gener_2 = self.network_architecture['n_hidden_gener_1']
+        n_hidden_gener_2 = self.network_architecture['n_hidden_gener_2'] # todo: during previous training this value was also n_hidden_gener_1
         latent_inputs = tf.keras.Input(shape=(self.latent_dim,))
         h1 = tf.keras.layers.Dense(n_hidden_gener_1, activation="relu", name='h1')(latent_inputs)
         n1 = tf.keras.layers.LayerNormalization()(h1)
@@ -194,11 +195,11 @@ class VariationalAutoencoderV2(tf.keras.Model):
         }
     def predict(self, x): # todo remove one function (either predict or reconstruct as they do the same thing)
         z_mean, z_log_var, z = self.encoder(x)
+        x_hat_mean, x_hat_log_sigma_sq = self.decoder(z_mean)
         if self.proba_output:
-            x_hat_mean, x_hat_log_sigma_sq = self.decoder(z_mean)
-            return x_hat_mean
+            return x_hat_mean, x_hat_log_sigma_sq
         else:
-            return self.decoder(z_mean)
+            return x_hat_mean
 
     def reconstruct(self, data, sample = 'mean'):
         z_mean, z_log_var, z = self.encoder(data)
@@ -215,7 +216,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
         data_miss_val = np.copy(data_corrupt[missing_row_ind, :])
         true_values_for_missing = data_complete[missing_row_ind, :]
         na_ind = np.where(np.isnan(data_miss_val))
-        data_miss_val[na_ind] = 0 # todo should the zero be imputed after the scaling is already done?
+        data_miss_val[na_ind] = 0
         for i in range(n_recycles):
             data_reconstruct = self.reconstruct(data_miss_val).numpy()
             data_miss_val[na_ind] = data_reconstruct[na_ind]
@@ -234,6 +235,60 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 multi_loss_dict = calculate_losses(target_values, predictions)
                 losses.append(multi_loss_dict)
         return losses
+
+    def impute_multiple(self, data_corrupt, max_iter=10):
+        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt,axis=1)))
+        data_miss_val = data_corrupt[missing_row_ind[0],:]
+        na_ind = np.where(np.isnan(data_miss_val))
+        data_miss_val[na_ind] = 0
+        uniform_distribution = tfp.distributions.Uniform(low=np.zeros(len(data_miss_val)),high=np.ones(len(data_miss_val)))
+        z_prior = tfp.distributions.Normal(loc=np.zeros([data_miss_val.shape[0], self.latent_dim]), scale=np.ones([data_miss_val.shape[0], self.latent_dim]))
+        all_changed_indicies = []
+        for i in range(max_iter):
+            print("Running imputation iteration", i+1)
+            z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
+            x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp) # todo check if this equivalent to the operation in V1
+            x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+            X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
+            x_hat_sample = X_hat_distribution.sample().numpy()
+            X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
+
+
+            if i == 0:
+                z_s_minus_1 = z_samp
+                x_hat_mean_s_minus_1 = x_hat_mean
+                x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
+                # Replace na_ind with x_hat_sample from first sampling
+                data_miss_val[na_ind] = x_hat_sample[na_ind] # todo test what happens if the mean is imputed at this step
+            else:
+                # Define distributions
+                z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
+                X_hat_distr_s_minus_1 = tfp.distributions.Normal(loc=x_hat_mean_s_minus_1, scale=tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
+
+                # Calculate log likelihood for previous and new sample to calculate acceptance probability with
+                log_q_z_star = tf.reduce_sum(z_Distribution.log_prob(z_samp), axis=1).numpy()
+                log_q_z_s_minus_1 = tf.reduce_sum(z_Distribution.log_prob(z_s_minus_1), axis=1).numpy()
+                log_p_z_star = tf.reduce_sum(z_prior.log_prob(z_samp), axis=1).numpy()
+                log_p_z_s_minus_1 = tf.reduce_sum(z_prior.log_prob(z_s_minus_1), axis=1).numpy()
+                log_p_Y_z_star = tf.reduce_sum(X_hat_distribution.log_prob(data_miss_val), axis=1).numpy()
+                log_p_Y_z_s_minus_1 = tf.reduce_sum(X_hat_distr_s_minus_1.log_prob(data_miss_val), axis=1).numpy()
+
+                accept_prob = np.exp(log_p_Y_z_star+log_p_z_star+log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1+log_p_z_s_minus_1+log_q_z_star))
+                uniform_sample = uniform_distribution.sample().numpy()
+                acceptance_indicies = np.where(uniform_sample <= accept_prob)[0]
+                print(f'number of values accepted: {len(acceptance_indicies)}')
+                print(f"changed indices {acceptance_indicies}")
+                print(f'Probabilities = {np.unique(accept_prob)}')
+                if len(acceptance_indicies):
+                    all_changed_indicies += list(acceptance_indicies)
+                    z_s_minus_1[acceptance_indicies] = z_samp[acceptance_indicies]
+                    x_hat_mean_s_minus_1[acceptance_indicies] = x_hat_mean[acceptance_indicies]
+                    x_hat_log_sigma_sq_s_minus_1[acceptance_indicies] = x_hat_log_sigma_sq[acceptance_indicies]
+                    na_ind_of_accepted = np.where(np.isnan(data_miss_val[acceptance_indicies]))
+                    data_miss_val[acceptance_indicies][na_ind_of_accepted] = x_hat_sample[acceptance_indicies][na_ind_of_accepted]
+        return all_changed_indicies, data_miss_val
+
+
 
 def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
                   decoder_path='output/20220405-14:37:31_decoder.keras',
@@ -270,11 +325,13 @@ if __name__=="__main__":
     else:
         encoder, decoder = None, None
     vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=1, pretrained_encoder=encoder, pretrained_decoder=decoder)
-    vae.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005, clipnorm=1.0))
-    history = vae.fit(x=data, y=data, epochs=100, batch_size=256) #  callbacks=[tensorboard_callback]
+    vae.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.00005, clipnorm=1.0))
+    history = vae.fit(x=data_missing, y=data_missing, epochs=100, batch_size=256) #  callbacks=[tensorboard_callback]
     decoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_decoder.keras"
     encoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_encoder.keras"
     vae.encoder.save(encoder_save_path)
     vae.decoder.save(decoder_save_path)
     with open('output/train_history_dict', 'wb') as file_handle:
         pickle.dump(history.history, file_handle)
+
+

@@ -52,8 +52,7 @@ if __name__ == '__main__':
         imp_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/imputed_datasets/"
         conv_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/convergence_plots/"
         na_out=restore_root+"ep"+str(training_epochs)+"_bs"+str(batch_size)+"_lr"+str(learning_rate)+"_bn"+str(latent_size)+"_opADAM"+"_beta"+str(beta)+"/multiple_imputation/NA_indices/"
-        
-	    # if these directories don't exist, make them
+        # if these directories don't exist, make them
         os.makedirs(imp_out, exist_ok=True)
         os.makedirs(conv_out, exist_ok=True)
         os.makedirs(na_out, exist_ok=True)
@@ -64,7 +63,7 @@ if __name__ == '__main__':
         data_missing = pd.read_csv(corrupt_data_path).values
 
         
-        n_row = data_missing.shape[1] # dimensionality of data space
+        n_col = data_missing.shape[1] # dimensionality of data space
         non_missing_row_ind= np.where(np.isfinite(np.sum(data_missing,axis=1)))
         na_ind = np.where(np.isnan(data_missing))
         na_count= len(na_ind[0])
@@ -97,7 +96,7 @@ if __name__ == '__main__':
                  n_hidden_recog_2=Encoder_hidden2, # 2nd layer encoder neurons
                  n_hidden_gener_1=Decoder_hidden1, # 1st layer decoder neurons
                  n_hidden_gener_2=Decoder_hidden2, # 2nd layer decoder neurons
-                 n_input=n_row, # data input size
+                 n_input=n_col, # data input size
                  n_z=latent_size)  # dimensionality of latent space
 
         
