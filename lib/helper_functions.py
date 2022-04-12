@@ -1,4 +1,5 @@
 import os
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import json
@@ -94,5 +95,6 @@ def load_saved_model(config_path = 'JW_config_VAE.json'):
     os.chdir(running_directory)
     return vae
 
-def get_accuracy_metrics(missing, complete, imputed):
-    pass
+
+
+
