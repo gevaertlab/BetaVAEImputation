@@ -8,7 +8,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 results = {}
 os.chdir('..')
 data, data_missing, sc = get_scaled_data(return_scaler=True, put_nans_back=True)
-root_dir = 'output/non_masked_beta1_lr1e-05/'
+root_dir = 'output/non_masked_beta50_lr1e-05/'
 for dir in sorted(os.listdir(root_dir), reverse=True):
     if not os.path.isdir(root_dir + dir) or 'epoch' not in dir:
         continue
