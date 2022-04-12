@@ -316,7 +316,7 @@ if __name__=="__main__":
     data, data_missing = get_scaled_data()
     n_row = data.shape[1]
     network_architecture['n_input']=n_row  # data input size
-    load_pretrained = True
+    load_pretrained = False
     if load_pretrained:
         encoder_path =  'output/20220405-14:37:31_encoder.keras'
         decoder_path = 'output/20220405-14:37:31_decoder.keras'
@@ -326,7 +326,7 @@ if __name__=="__main__":
         encoder, decoder = None, None
     vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=1, pretrained_encoder=encoder, pretrained_decoder=decoder)
     vae.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.00005, clipnorm=1.0))
-    history = vae.fit(x=data_missing, y=data_missing, epochs=100, batch_size=256) #  callbacks=[tensorboard_callback]
+    history = vae.fit(x=data_missing, y=data_missing, epochs=250, batch_size=256) #  callbacks=[tensorboard_callback]
     decoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_decoder.keras"
     encoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_encoder.keras"
     vae.encoder.save(encoder_save_path)
