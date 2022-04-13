@@ -6,7 +6,9 @@ from betaVAEv2 import VariationalAutoencoderV2, Sampling, network_architecture
 import time
 os.chdir('..')
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
+"""
+This module evaluates the amount of time it takes to run the decoder on a large number of samples
+"""
 
 for dir in sorted(os.listdir('output/'), reverse=True):
     if not os.path.isdir('output/' + dir) or 'epoch' not in dir:

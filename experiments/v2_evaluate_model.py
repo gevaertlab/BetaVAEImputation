@@ -4,7 +4,9 @@ import pandas as pd
 import tensorflow as tf
 from betaVAEv2 import VariationalAutoencoderV2, Sampling, network_architecture
 from lib.helper_functions import get_scaled_data
-
+"""
+This model evaluates the model performance using the mean of Z and X and recycling a certain number of times
+"""
 def evaluate_model_v2(model):
     data = pd.read_csv('../data/data_complete.csv').values
     data = np.array(np.copy(data[:, 4:]), dtype='float64')
