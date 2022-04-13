@@ -1,6 +1,7 @@
 import datetime
 import pickle
 import numpy as np
+import random
 import tensorflow as tf
 import tensorflow_probability as tfp
 # from tf.keras import layers
@@ -236,58 +237,122 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 losses.append(multi_loss_dict)
         return losses
 
-    def impute_multiple(self, data_corrupt, max_iter=10):
+    def impute_multiple(self, data_corrupt, max_iter=10, m = 50, method = 'pseudo-Gibbs'):
         missing_row_ind = np.where(np.isnan(np.sum(data_corrupt,axis=1)))
         data_miss_val = data_corrupt[missing_row_ind[0],:]
         na_ind = np.where(np.isnan(data_miss_val))
+        compl_ind = np.where(np.isfinite(data_miss_val))
         data_miss_val[na_ind] = 0
         uniform_distribution = tfp.distributions.Uniform(low=np.zeros(len(data_miss_val)),high=np.ones(len(data_miss_val)))
         z_prior = tfp.distributions.Normal(loc=np.zeros([data_miss_val.shape[0], self.latent_dim]), scale=np.ones([data_miss_val.shape[0], self.latent_dim]))
-        all_changed_indicies = []
-        for i in range(max_iter):
-            print("Running imputation iteration", i+1)
+        convergence_loglik = []
+
+        if method == "Metropolis-within-Gibbs":
+            all_changed_indicies = []
+            for i in range(max_iter):
+                print("Running imputation iteration", i+1)
+                z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
+                x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp) # todo check if this equivalent to the operation in V1
+                x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
+                x_hat_sample = X_hat_distribution.sample().numpy()
+                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
+                convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na).numpy())
+
+                if i == 0:
+                    z_s_minus_1 = z_samp
+                    x_hat_mean_s_minus_1 = x_hat_mean
+                    x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
+                    # Replace na_ind with x_hat_sample from first sampling
+                    data_miss_val[na_ind] = x_hat_sample[na_ind] # todo test what happens if the mean is imputed at this step
+                else:
+                    # Define distributions
+                    z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
+                    X_hat_distr_s_minus_1 = tfp.distributions.Normal(loc=x_hat_mean_s_minus_1, scale=tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
+
+                    # Calculate log likelihood for previous and new sample to calculate acceptance probability with
+                    log_q_z_star = tf.reduce_sum(z_Distribution.log_prob(z_samp), axis=1).numpy()
+                    log_q_z_s_minus_1 = tf.reduce_sum(z_Distribution.log_prob(z_s_minus_1), axis=1).numpy()
+                    log_p_z_star = tf.reduce_sum(z_prior.log_prob(z_samp), axis=1).numpy()
+                    log_p_z_s_minus_1 = tf.reduce_sum(z_prior.log_prob(z_s_minus_1), axis=1).numpy()
+                    log_p_Y_z_star = tf.reduce_sum(X_hat_distribution.log_prob(data_miss_val), axis=1).numpy()
+                    log_p_Y_z_s_minus_1 = tf.reduce_sum(X_hat_distr_s_minus_1.log_prob(data_miss_val), axis=1).numpy()
+
+                    accept_prob = np.exp(log_p_Y_z_star+log_p_z_star+log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1+log_p_z_s_minus_1+log_q_z_star))
+                    uniform_sample = uniform_distribution.sample().numpy()
+                    acceptance_indicies = np.where(uniform_sample <= accept_prob)[0]
+                    print(f'number of values accepted: {len(acceptance_indicies)}')
+                    print(f"changed indices {acceptance_indicies}")
+                    print(f'Probabilities = {np.unique(accept_prob)}')
+                    if len(acceptance_indicies):
+                        all_changed_indicies += list(acceptance_indicies)
+                        z_s_minus_1[acceptance_indicies] = z_samp[acceptance_indicies]
+                        x_hat_mean_s_minus_1[acceptance_indicies] = x_hat_mean[acceptance_indicies]
+                        x_hat_log_sigma_sq_s_minus_1[acceptance_indicies] = x_hat_log_sigma_sq[acceptance_indicies]
+                        na_ind_of_accepted = np.where(np.isnan(data_miss_val[acceptance_indicies]))
+                        data_miss_val[acceptance_indicies][na_ind_of_accepted] = x_hat_sample[acceptance_indicies][na_ind_of_accepted]
+            return data_miss_val, convergence_loglik
+        elif method == "importance sampling":
+            logweights = []
+            x_hat_sample_l = []
             z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
-            x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp) # todo check if this equivalent to the operation in V1
-            x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-            X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
-            x_hat_sample = X_hat_distribution.sample().numpy()
-            X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
+            z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
+            for i in range(max_iter):
+                z_l = z_Distribution.sample().numpy() 
+                x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_l) # todo check if this equivalent to the operation in V1
+                x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
+                x_hat_sample = X_hat_distribution.sample().numpy()
+                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
+                X_hat_distribution_compl = tfp.distributions.Normal(loc=x_hat_mean[compl_ind], scale=x_hat_sigma[compl_ind]) 
+                convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])).numpy())
 
+                xm = x_hat_sample[na_ind]
 
-            if i == 0:
-                z_s_minus_1 = z_samp
-                x_hat_mean_s_minus_1 = x_hat_mean
-                x_hat_log_sigma_sq_s_minus_1 = x_hat_log_sigma_sq
-                # Replace na_ind with x_hat_sample from first sampling
-                data_miss_val[na_ind] = x_hat_sample[na_ind] # todo test what happens if the mean is imputed at this step
-            else:
-                # Define distributions
-                z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
-                X_hat_distr_s_minus_1 = tfp.distributions.Normal(loc=x_hat_mean_s_minus_1, scale=tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
+                log_p_Yc_z = tf.reduce_sum(X_hat_distribution_compl.log_prob(x_hat_sample[compl_ind])).numpy()
+                log_p_z = tf.reduce_sum(z_prior.log_prob(z_l)).numpy()
+                log_q_z_Y = tf.reduce_sum(z_Distribution.log_prob(z_l)).numpy()
 
-                # Calculate log likelihood for previous and new sample to calculate acceptance probability with
-                log_q_z_star = tf.reduce_sum(z_Distribution.log_prob(z_samp), axis=1).numpy()
-                log_q_z_s_minus_1 = tf.reduce_sum(z_Distribution.log_prob(z_s_minus_1), axis=1).numpy()
-                log_p_z_star = tf.reduce_sum(z_prior.log_prob(z_samp), axis=1).numpy()
-                log_p_z_s_minus_1 = tf.reduce_sum(z_prior.log_prob(z_s_minus_1), axis=1).numpy()
-                log_p_Y_z_star = tf.reduce_sum(X_hat_distribution.log_prob(data_miss_val), axis=1).numpy()
-                log_p_Y_z_s_minus_1 = tf.reduce_sum(X_hat_distr_s_minus_1.log_prob(data_miss_val), axis=1).numpy()
+                # because r goes to infinity, we will keep in log form for simplification of probabilities 
+                logr = log_p_Yc_z+log_p_z-log_q_z_Y
 
-                accept_prob = np.exp(log_p_Y_z_star+log_p_z_star+log_q_z_s_minus_1 - (log_p_Y_z_s_minus_1+log_p_z_s_minus_1+log_q_z_star))
-                uniform_sample = uniform_distribution.sample().numpy()
-                acceptance_indicies = np.where(uniform_sample <= accept_prob)[0]
-                print(f'number of values accepted: {len(acceptance_indicies)}')
-                print(f"changed indices {acceptance_indicies}")
-                print(f'Probabilities = {np.unique(accept_prob)}')
-                if len(acceptance_indicies):
-                    all_changed_indicies += list(acceptance_indicies)
-                    z_s_minus_1[acceptance_indicies] = z_samp[acceptance_indicies]
-                    x_hat_mean_s_minus_1[acceptance_indicies] = x_hat_mean[acceptance_indicies]
-                    x_hat_log_sigma_sq_s_minus_1[acceptance_indicies] = x_hat_log_sigma_sq[acceptance_indicies]
-                    na_ind_of_accepted = np.where(np.isnan(data_miss_val[acceptance_indicies]))
-                    data_miss_val[acceptance_indicies][na_ind_of_accepted] = x_hat_sample[acceptance_indicies][na_ind_of_accepted]
-        return all_changed_indicies, data_miss_val
+                logweights.append(logr)
+                x_hat_sample_l.append(xm)
 
+            prob_weights = []
+            for l in range(len(logweights)):
+                # here i'm implementing a trick using exponent laws s.t. the numerator/denominator are finite
+                p_l = 1/np.sum(np.exp(logweights - logweights[l]))
+
+                prob_weights.append(p_l)          
+
+            # Now sample from x_hat_sample_l with probability = prob_weights and assign missing value indices to those sampled values
+            samp = random.choices(population=x_hat_sample_l, weights=prob_weights,k=m)
+
+            # Replace sampled values to m data_miss_vals
+            mult_imp_datasets = []
+            for j in range(m):
+                data_miss_val[na_ind] = samp[j]
+                mult_imp_datasets.append(data_miss_val)
+
+            # Code for this needed here
+            return mult_imp_datasets, convergence_loglik
+
+        elif method == "pseudo-Gibbs":
+            for i in range(max_iter):
+                z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
+                x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp) # todo check if this equivalent to the operation in V1
+                x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
+                x_hat_sample = X_hat_distribution.sample().numpy()
+                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
+                convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na).numpy())
+
+            data_miss_val[na_ind] = x_hat_sample[na_ind]
+
+            return data_miss_val, convergence_loglik
+        else:
+            print("Please choose a convergence method from either pseudo-Gibbs, Metropolis-within-Gibbs or importance sampling")
 
 
 def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
@@ -316,7 +381,7 @@ if __name__=="__main__":
     data, data_missing = get_scaled_data()
     n_row = data.shape[1]
     network_architecture['n_input']=n_row  # data input size
-    load_pretrained = False
+    load_pretrained = True
     if load_pretrained:
         encoder_path =  'output/20220405-14:37:31_encoder.keras'
         decoder_path = 'output/20220405-14:37:31_decoder.keras'
@@ -324,14 +389,12 @@ if __name__=="__main__":
         decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
     else:
         encoder, decoder = None, None
-    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=1, pretrained_encoder=encoder, pretrained_decoder=decoder)
+    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=50, pretrained_encoder=encoder, pretrained_decoder=decoder)
     vae.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.00005, clipnorm=1.0))
-    history = vae.fit(x=data_missing, y=data_missing, epochs=250, batch_size=256) #  callbacks=[tensorboard_callback]
+    history = vae.fit(x=data_missing, y=data_missing, epochs=1000, batch_size=256) #  callbacks=[tensorboard_callback]
     decoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_decoder.keras"
     encoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_encoder.keras"
     vae.encoder.save(encoder_save_path)
     vae.decoder.save(decoder_save_path)
     with open('output/train_history_dict', 'wb') as file_handle:
         pickle.dump(history.history, file_handle)
-
-
