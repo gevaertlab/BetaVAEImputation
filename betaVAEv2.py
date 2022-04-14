@@ -316,9 +316,19 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 z_log_sigma_sq_l.append(z_log_sigma_sq_l)
             prob_weights = []
             for l in range(len(logweights)):
-                p_l = 1/np.sum(np.exp(logweights - logweights[l]))
+                p_l = 1/np.sum(np.exp(logweights - logweights[l]), axis=0)
                 prob_weights.append(p_l)
             prob_weights = np.array(prob_weights)
+            # for each observation (row) in the dataset we want to pick m samples
+
+            for i in range(len(data_miss_val)):
+                single_obs_weights = prob_weights[:, i]
+                samp_ind = random.choices(range(len(z_sample_l)), weights=single_obs_weights, k=m)
+                # single_z_samp = z_sample_l[samp_ind]
+                # single_z_log_var = z_log_sigma_sq_l[samp_ind]
+
+
+
             # samp = random.choices(population=x_hat_sample_l, weights=prob_weights, k=m) # todo finish this function
 
         elif method == "importance sampling":
