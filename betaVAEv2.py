@@ -371,7 +371,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             mult_imp_datasets = []
             for j in range(m):
                 data_miss_val[na_ind] = samp[j]
-                mult_imp_datasets.append(data_miss_val)
+                mult_imp_datasets.append(np.copy(data_miss_val))
 
             # Code for this needed here
             return mult_imp_datasets, convergence_loglik
