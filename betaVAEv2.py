@@ -348,7 +348,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
                 xm = x_hat_sample[na_ind]
 
-                log_p_Yc_z = tf.reduce_sum(X_hat_distribution_compl.log_prob(x_hat_sample[compl_ind])).numpy()
+                log_p_Yc_z = tf.reduce_sum(X_hat_distribution_compl.log_prob(data_miss_val[compl_ind])).numpy()
                 log_p_z = tf.reduce_sum(z_prior.log_prob(z_l)).numpy()
                 log_q_z_Y = tf.reduce_sum(z_Distribution.log_prob(z_l)).numpy()
 
