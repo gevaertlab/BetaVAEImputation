@@ -238,7 +238,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
         return losses
 
     def impute_multiple(self, data_corrupt, max_iter=10, m = 50, method = 'pseudo-Gibbs'):
-        missing_row_ind = np.where(np.isnan(np.sum(data_corrupt,axis=1)))
+        missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
         data_miss_val = data_corrupt[missing_row_ind[0],:]
         na_ind = np.where(np.isnan(data_miss_val))
         compl_ind = np.where(np.isfinite(data_miss_val))
@@ -292,6 +292,35 @@ class VariationalAutoencoderV2(tf.keras.Model):
                         na_ind_of_accepted = np.where(np.isnan(data_miss_val[acceptance_indicies]))
                         data_miss_val[acceptance_indicies][na_ind_of_accepted] = x_hat_sample[acceptance_indicies][na_ind_of_accepted]
             return data_miss_val, convergence_loglik
+
+        elif method == "importance sampling2":
+            logweights = []
+            z_sample_l = []
+            z_log_sigma_sq_l = []
+            z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
+            z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
+            probability_mask = np.zeros(data_miss_val.shape)
+            probability_mask[compl_ind] = 1
+            for i in range(max_iter):
+                z_l = z_Distribution.sample().numpy()
+                x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_l)
+                x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
+                log_p_Yc_z = tf.reduce_sum(X_hat_distribution.log_prob(data_miss_val).numpy() * probability_mask, axis=1).numpy()
+                log_p_z = tf.reduce_sum(z_prior.log_prob(z_l), axis=1).numpy()
+                log_q_z_Y = tf.reduce_sum(z_Distribution.log_prob(z_l), axis=1).numpy()
+
+                logr = log_p_Yc_z + log_p_z - log_q_z_Y
+                logweights.append(logr)
+                z_sample_l.append(z_l)
+                z_log_sigma_sq_l.append(z_log_sigma_sq_l)
+            prob_weights = []
+            for l in range(len(logweights)):
+                p_l = 1/np.sum(np.exp(logweights - logweights[l]))
+                prob_weights.append(p_l)
+            prob_weights = np.array(prob_weights)
+            # samp = random.choices(population=x_hat_sample_l, weights=prob_weights, k=m) # todo finish this function
+
         elif method == "importance sampling":
             logweights = []
             x_hat_sample_l = []
@@ -323,7 +352,6 @@ class VariationalAutoencoderV2(tf.keras.Model):
             for l in range(len(logweights)):
                 # here i'm implementing a trick using exponent laws s.t. the numerator/denominator are finite
                 p_l = 1/np.sum(np.exp(logweights - logweights[l]))
-
                 prob_weights.append(p_l)          
 
             # Now sample from x_hat_sample_l with probability = prob_weights and assign missing value indices to those sampled values
