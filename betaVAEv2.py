@@ -313,7 +313,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 logr = log_p_Yc_z + log_p_z - log_q_z_Y
                 logweights.append(logr)
                 z_sample_l.append(z_l)
-                z_log_sigma_sq_l.append(z_log_sigma_sq_l)
+                # z_log_sigma_sq_l.append(z_log_sigma_sq_l)
             prob_weights = []
             for l in range(len(logweights)):
                 p_l = 1/np.sum(np.exp(logweights - logweights[l]), axis=0)
@@ -324,8 +324,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
             for i in range(len(data_miss_val)):
                 single_obs_weights = prob_weights[:, i]
                 samp_ind = random.choices(range(len(z_sample_l)), weights=single_obs_weights, k=m)
-                # single_z_samp = z_sample_l[samp_ind]
-                # single_z_log_var = z_log_sigma_sq_l[samp_ind]
+                single_z_samp = z_sample_l[samp_ind]
+                self.decoder.predict(single_z_samp)
 
 
 
