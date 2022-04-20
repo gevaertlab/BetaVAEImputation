@@ -294,9 +294,9 @@ class VariationalAutoencoderV2(tf.keras.Model):
             return data_miss_val, convergence_loglik
 
         elif method == "importance sampling2":
+            n_samp = data_miss_val.shape[0]
             logweights = []
             z_sample_l = []
-            z_log_sigma_sq_l = []
             z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
             z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
             probability_mask = np.zeros(data_miss_val.shape)
@@ -313,23 +313,43 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 logr = log_p_Yc_z + log_p_z - log_q_z_Y
                 logweights.append(logr)
                 z_sample_l.append(z_l)
-                # z_log_sigma_sq_l.append(z_log_sigma_sq_l)
-            prob_weights = []
-            for l in range(len(logweights)):
-                p_l = 1/np.sum(np.exp(logweights - logweights[l]), axis=0)
-                prob_weights.append(p_l)
+
+            # Now we have run every iteration, we need to rearrange our lists logweights and z_sample_l to be by observation
+            logweights_byobs = np.transpose(np.array(logweights))
+            z_sample_l_byobs = np.transpose(np.array(z_sample_l), axes = (1,0,2))
+
+            # compute probability weights per sample
+            prob_weights = [] 
+
+            for s in range(n_samp):
+                prob_weights_s = []
+                for l in range(max_iter):
+                    p_l = 1/np.sum(np.exp(logweights_byobs[s] - logweights_byobs[s][l]))
+                    prob_weights_s.append(p_l)
+                prob_weights.append(np.copy(prob_weights_s))
+
             prob_weights = np.array(prob_weights)
             # for each observation (row) in the dataset we want to pick m samples
 
-            for i in range(len(data_miss_val)):
-                single_obs_weights = prob_weights[:, i]
-                samp_ind = random.choices(range(len(z_sample_l)), weights=single_obs_weights, k=m)
-                single_z_samp = z_sample_l[samp_ind]
-                self.decoder.predict(single_z_samp)
+            sampled_datasets = []
+            for s in range(n_samp):
+                # 200 latent dimensions for m plausible z_samps for one observation
+                samp_m_obs = np.array(random.choices(population = z_sample_l_byobs[s], weights=prob_weights[s], k=m))
+                x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(samp_m_obs)
+                x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
+                x_hat_sample = X_hat_distribution.sample().numpy() 
+                sampled_datasets.append(x_hat_sample)
+            
+            # this will give us m plausible datasets of size n_samp x n_features
+            sampled_datasets_t = np.transpose(np.array(sampled_datasets), axes = (1,0,2))
 
+            mult_imp_datasets = []
+            for j in range(m):
+                data_miss_val[na_ind] = sampled_datasets_t[j][na_ind]
+                mult_imp_datasets.append(np.copy(data_miss_val)) 
 
-
-            # samp = random.choices(population=x_hat_sample_l, weights=prob_weights, k=m) # todo finish this function
+            return mult_imp_datasets
 
         elif method == "importance sampling":
             logweights = []
