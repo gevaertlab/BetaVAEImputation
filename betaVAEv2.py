@@ -318,8 +318,6 @@ class VariationalAutoencoderV2(tf.keras.Model):
             logweights_byobs = np.transpose(np.array(logweights))
             z_sample_l_byobs = np.transpose(np.array(z_sample_l), axes = (1,0,2))
 
-            # compute probability weights per sample
-            prob_weights = [] 
             # compute sampled datasets for each sampling of m plausible sets
             sampled_datasets = []
             for s in range(n_samp):
@@ -327,15 +325,14 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 for l in range(max_iter):
                     p_l = 1/np.sum(np.exp(logweights_byobs[s] - logweights_byobs[s][l]))
                     prob_weights_s.append(p_l)
-                prob_weights.append(np.copy(prob_weights_s))
-                prob_weights = np.array(prob_weights)
                 # 200 latent dimensions for m plausible z_samps for one observation
-                samp_m_obs = np.array(random.choices(population = z_sample_l_byobs[s], weights=prob_weights[s], k=m))
+                samp_m_obs = np.array(random.choices(population = z_sample_l_byobs[s], weights=prob_weights_s, k=m))
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(samp_m_obs)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
                 X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy() 
                 sampled_datasets.append(x_hat_sample)
+
             
             # this will give us m plausible datasets of size n_samp x n_features
             sampled_datasets_t = np.transpose(np.array(sampled_datasets), axes = (1,0,2))
