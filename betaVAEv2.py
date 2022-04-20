@@ -257,7 +257,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy()
                 X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
-                convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na).numpy())
+                convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind]).numpy()))
 
                 if i == 0:
                     z_s_minus_1 = z_samp
@@ -320,6 +320,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
             # compute sampled datasets for each sampling of m plausible sets
             sampled_datasets = []
+            ess = []
             for s in range(n_samp):
                 prob_weights_s = []
                 for l in range(max_iter):
@@ -332,7 +333,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy() 
                 sampled_datasets.append(x_hat_sample)
-
+                ess.append(1/np.sum(np.square(prob_weights_s)))
             
             # this will give us m plausible datasets of size n_samp x n_features
             sampled_datasets_t = np.transpose(np.array(sampled_datasets), axes = (1,0,2))
@@ -342,7 +343,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 data_miss_val[na_ind] = sampled_datasets_t[j][na_ind]
                 mult_imp_datasets.append(np.copy(data_miss_val)) 
 
-            return mult_imp_datasets
+            return mult_imp_datasets, ess
 
         elif method == "importance sampling":
             logweights = []
