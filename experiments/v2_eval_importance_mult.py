@@ -12,5 +12,5 @@ if __name__=="__main__":
     decoder_path = model_dir +'decoder.keras'
     model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
-    model.impute_multiple(data_corrupt=data_missing, max_iter=10, m = 4, method = 'importance sampling2')
+    mult_imp_datasets = model.impute_multiple(data_corrupt=data_missing, max_iter=10, m = 4, method = 'importance sampling2')
     bp=True
