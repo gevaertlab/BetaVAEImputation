@@ -320,19 +320,15 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
             # compute probability weights per sample
             prob_weights = [] 
-
+            # compute sampled datasets for each sampling of m plausible sets
+            sampled_datasets = []
             for s in range(n_samp):
                 prob_weights_s = []
                 for l in range(max_iter):
                     p_l = 1/np.sum(np.exp(logweights_byobs[s] - logweights_byobs[s][l]))
                     prob_weights_s.append(p_l)
                 prob_weights.append(np.copy(prob_weights_s))
-
-            prob_weights = np.array(prob_weights)
-            # for each observation (row) in the dataset we want to pick m samples
-
-            sampled_datasets = []
-            for s in range(n_samp):
+                prob_weights = np.array(prob_weights)
                 # 200 latent dimensions for m plausible z_samps for one observation
                 samp_m_obs = np.array(random.choices(population = z_sample_l_byobs[s], weights=prob_weights[s], k=m))
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(samp_m_obs)
