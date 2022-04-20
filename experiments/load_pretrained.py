@@ -50,7 +50,7 @@ if __name__ == '__main__':
     data_missing = pd.read_csv(corrupt_data_path).values
 
     # How many genes do we have? ie. what is the dimensiontality of Yobs?
-    n_row = data_missing.shape[1]  # dimensionality of data space
+    n_col = data_missing.shape[1]  # dimensionality of data space
     # Store the index of each sample that is complete
     non_missing_row_ind = np.where(np.isfinite(data_missing).all(axis=1))
     # Store the rows and columns of every missing data point in your "data_missing" numpy array
@@ -84,7 +84,7 @@ if __name__ == '__main__':
              n_hidden_recog_2=Encoder_hidden2,  # 2nd layer encoder neurons
              n_hidden_gener_1=Decoder_hidden1,  # 1st layer decoder neurons
              n_hidden_gener_2=Decoder_hidden2,  # 2nd layer decoder neurons
-             n_input=n_row,  # data input size
+             n_input=n_col,  # data input size
              n_z=latent_size)  # dimensionality of latent space
 
     # initialise VAE:

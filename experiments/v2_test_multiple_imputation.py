@@ -9,8 +9,10 @@ from lib.helper_functions import get_scaled_data
 
 def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=None):
     if multi_imputes is None:
+        print('Loading saved multiple imputations from disk')
         # '../output/non_masked_beta100_lr1e-05/multi_impute.pickle'
-        with open('../output/non_masked_beta50_lr1e-05/multi_impute.pickle', 'rb') as filehandle:
+        # '../output/non_masked_beta50_lr1e-05/multi_impute.pickle'
+        with open('', 'rb') as filehandle:
             multi_imputes = np.array(pickle.load(filehandle))
     if data is None:
         data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
@@ -37,21 +39,22 @@ def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=N
 
 
 if __name__=="__main__":
-    model_dir = '/home/jwells/Documents/BetaVAEImputation/output/non_masked_beta50_lr1e-05/epoch_1000_loss_14374.0/'
+    model_dir = '/home/jwells/Documents/BetaVAEImputation/output/masking_generator_complete_only_0p9_0p1_beta50_lr1e-05/epoch_2000_loss_9600/'
     output_dir = '/'.join(model_dir.split('/')[:-2]) + '/'
     encoder_path = model_dir + 'encoder.keras'
     decoder_path = model_dir +'decoder.keras'
     model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
-    m_datasets = 80
+    m_datasets = 40
     np.isnan(data_missing).any(axis=0)
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
     multi_imputes = []
     for i in range(m_datasets):
-        index_changes, missing_imputed = model.impute_multiple(data_corrupt=data_missing, max_iter=400)
+        index_changes, missing_imputed = model.impute_multiple(data_corrupt=data_missing, max_iter=200)
         multi_imputes.append(missing_imputed[na_ind])
     plt.hist(index_changes, bins=133, range=[0,132])
+    plt.title('/'.join(model_dir.split('/')[-2:]))
     plt.show()
     evaluate_coverage(multi_imputes, data, data_missing, scaler)
     os.makedirs(output_dir, exist_ok=True)
