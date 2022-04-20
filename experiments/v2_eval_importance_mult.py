@@ -1,5 +1,5 @@
 import os
-
+import time
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
@@ -12,5 +12,8 @@ if __name__=="__main__":
     decoder_path = model_dir +'decoder.keras'
     model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
-    mult_imp_datasets = model.impute_multiple(data_corrupt=data_missing, max_iter=10, m = 4, method = 'importance sampling2')
+    start = time.time()
+    mult_imp_datasets = model.impute_multiple(data_corrupt=data_missing, max_iter=10_000, m = 40, method = 'importance sampling2')
+    runtime = time.time() - start
+    print(f'total runtime: {runtime}')
     bp=True
