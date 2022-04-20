@@ -21,7 +21,7 @@ if __name__=="__main__":
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
     multi_imputes = []
     for i in range(m_datasets):
-        index_changes, missing_imputed = model.impute_multiple(data_corrupt=data_missing, max_iter=1000,
+        index_changes, missing_imputed = model.impute_multiple(data_corrupt=data_missing, max_iter=700,
                                                                method="Metropolis-within-Gibbs")
         multi_imputes.append(missing_imputed)
     plt.hist(index_changes, bins=133, range=[0,132])

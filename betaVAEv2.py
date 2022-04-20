@@ -282,8 +282,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
                     uniform_sample = uniform_distribution.sample().numpy()
                     acceptance_indicies = np.where(uniform_sample <= accept_prob)[0]
                     print(f'number of values accepted: {len(acceptance_indicies)}')
-                    print(f"changed indices {acceptance_indicies}")
-                    print(f'Probabilities = {np.unique(accept_prob)}')
+                    # print(f"changed indices {acceptance_indicies}")
+                    # print(f'Probabilities = {np.unique(accept_prob)}')
                     if len(acceptance_indicies):
                         all_changed_indicies += list(acceptance_indicies)
                         z_s_minus_1[acceptance_indicies] = z_samp[acceptance_indicies]
