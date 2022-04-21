@@ -334,7 +334,9 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy() 
                 sampled_datasets.append(x_hat_sample)
-                ess.append(1/np.sum(np.square(prob_weights_s)))
+                eff_samp_size = 1/np.sum(np.square(prob_weights_s))
+                print('ESS:', eff_samp_size)
+                ess.append(eff_samp_size)
             
             # this will give us m plausible datasets of size n_samp x n_features
             sampled_datasets_t = np.transpose(np.array(sampled_datasets), axes = (1,0,2))
