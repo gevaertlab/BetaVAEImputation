@@ -14,11 +14,11 @@ if __name__=="__main__":
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     mult_imp_datasets, effective_sample = model.impute_multiple(data_corrupt=data_missing, max_iter=10_000, m = 40, method = 'importance sampling2')
     print(f'Effective sample size: {round(np.mean(effective_sample), 2)}')
-    multi_imputes = []
+    multi_imputes_missing = []
     missing_row_ind = np.where(np.isnan(data_missing).any(axis=1))[0]
     data_miss_val = data_missing[missing_row_ind, :]
     na_ind = np.where(np.isnan(data_miss_val))
     for imputed_dataset in mult_imp_datasets:
-        multi_imputes.append(imputed_dataset[na_ind])
-    evaluate_coverage(multi_imputes, data, data_missing, scaler)
+        multi_imputes_missing.append(imputed_dataset[na_ind])
+    evaluate_coverage(multi_imputes_missing, data, data_missing, scaler)
     bp=True

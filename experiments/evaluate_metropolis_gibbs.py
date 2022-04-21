@@ -15,18 +15,21 @@ if __name__=="__main__":
     decoder_path = model_dir +'decoder.keras'
     model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
-    m_datasets = 40
+    m_datasets = 3
     np.isnan(data_missing).any(axis=0)
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
-    multi_imputes = []
+    imputed_datasets = []
+    multi_imputes_missing = []
     for i in range(m_datasets):
-        index_changes, missing_imputed = model.impute_multiple(data_corrupt=data_missing, max_iter=700,
+        missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing, max_iter=5,
                                                                method="Metropolis-within-Gibbs")
-        multi_imputes.append(missing_imputed)
-    plt.hist(index_changes, bins=133, range=[0,132])
-    plt.show()
-    evaluate_coverage(multi_imputes, data, data_missing, scaler)
-    os.makedirs(output_dir, exist_ok=True)
-    with open(output_dir + 'multi_impute.pickle', 'wb') as filehandle:
-        pickle.dump(multi_imputes, filehandle)
+        imputed_datasets.append(missing_imputed)
+
+    for imp_data in imputed_datasets:
+        multi_imputes_missing.append(imp_data[na_ind])
+
+    evaluate_coverage(multi_imputes_missing, data, data_missing, scaler)
+    # os.makedirs(output_dir, exist_ok=True)
+    # with open(output_dir + 'multi_impute.pickle', 'wb') as filehandle:
+    #     pickle.dump(multi_imputes, filehandle)
