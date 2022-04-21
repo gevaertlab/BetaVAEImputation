@@ -257,7 +257,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy()
                 X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
-                convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na).numpy())
+                convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind]).numpy()))
 
                 if i == 0:
                     z_s_minus_1 = z_samp
@@ -282,8 +282,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
                     uniform_sample = uniform_distribution.sample().numpy()
                     acceptance_indicies = np.where(uniform_sample <= accept_prob)[0]
                     print(f'number of values accepted: {len(acceptance_indicies)}')
-                    print(f"changed indices {acceptance_indicies}")
-                    print(f'Probabilities = {np.unique(accept_prob)}')
+                    # print(f"changed indices {acceptance_indicies}")
+                    # print(f'Probabilities = {np.unique(accept_prob)}')
                     if len(acceptance_indicies):
                         all_changed_indicies += list(acceptance_indicies)
                         z_s_minus_1[acceptance_indicies] = z_samp[acceptance_indicies]
@@ -292,6 +292,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                         na_ind_of_accepted = np.where(np.isnan(data_miss_val[acceptance_indicies]))
                         data_miss_val[acceptance_indicies][na_ind_of_accepted] = x_hat_sample[acceptance_indicies][na_ind_of_accepted]
             return data_miss_val, convergence_loglik
+
 
         elif method == "importance sampling2":
             n_samp = data_miss_val.shape[0]
