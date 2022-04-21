@@ -434,7 +434,7 @@ if __name__=="__main__":
     data, data_missing = get_scaled_data()
     n_row = data.shape[1]
     network_architecture['n_input']=n_row  # data input size
-    load_pretrained = True
+    load_pretrained = False
     if load_pretrained:
         encoder_path =  'output/20220405-14:37:31_encoder.keras'
         decoder_path = 'output/20220405-14:37:31_decoder.keras'
