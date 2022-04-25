@@ -18,8 +18,8 @@ if __name__=="__main__":
     output_dir = model_dir + 'Metropolis-within-Gibbs/'
     outname = 'plaus_dataset_' + args.dataset
     print(outname)
-    encoder_path = model_dir + '20220421-15:49:01_encoder.keras'
-    decoder_path = model_dir +'20220421-15:49:01_decoder.keras'
+    encoder_path = model_dir + '20220423-14:22:36_encoder.keras'
+    decoder_path = model_dir +'20220423-14:22:36_decoder.keras'
     model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     np.isnan(data_missing).any(axis=0)
