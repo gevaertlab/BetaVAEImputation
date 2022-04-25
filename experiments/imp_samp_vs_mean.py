@@ -61,9 +61,9 @@ class ModVariationalAutoencoder(VariationalAutoencoderV2):
                     obs_higher_likelihood = sum(log_p_Yc_z > z_mean_log_p_Yc_z)
                     print(f'n obs with higher likelihood in round {i}: {obs_higher_likelihood}')
                     likelihood_counter += obs_higher_likelihood
-                plt.hist(indicies_changes, bins=133, range=[0,132])
-                plt.savefig('output/index_changes_zmean')
-                plt.show()
+            plt.hist(indicies_changes, bins=133, range=[0,132])
+            plt.savefig('output/index_changes_zmean')
+            plt.show()
 
 
 
@@ -82,4 +82,4 @@ if __name__=="__main__":
     model = ModVariationalAutoencoder(network_architecture=network_architecture, beta=50, pretrained_encoder=encoder,
                                    pretrained_decoder=decoder, dropout=False)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
-    model.impute_multiple(data_corrupt=data_missing, max_iter=100, method = 'importance sampling2 modified')
+    model.impute_multiple(data_corrupt=data_missing, max_iter=1000, method = 'importance sampling2 modified')
