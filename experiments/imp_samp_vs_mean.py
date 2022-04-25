@@ -58,7 +58,7 @@ class ModVariationalAutoencoder(VariationalAutoencoderV2):
                     print(f'n obs with higher weight in round {i}: {obs_higher_weight}')
                     obs_higher_likelihood = sum(log_p_Yc_z > z_mean_log_p_Yc_z)
                     print(f'n obs with higher likelihood in round {i}: {obs_higher_likelihood}')
-                    likelihood_counter = obs_higher_likelihood
+                    likelihood_counter += obs_higher_likelihood
 
 
 
