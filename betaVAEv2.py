@@ -46,6 +46,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
         self.proba_output = proba_output
         self.beta = beta
         self.dropout = dropout
+        self.dropout_rate = network_architecture.get('dropout_rate', 0.1)
         if pretrained_encoder is not None:
             self.encoder = pretrained_encoder
         else:
@@ -161,8 +162,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
     def train_step(self, data):
         x, y = data
-        tf.print(x[0, :10])
-        tf.print(y[0, :10])
+        # tf.print(x[0, :10])
+        # tf.print(y[0, :10])
         with tf.GradientTape() as tape:
             z_mean, z_log_var, z = self.encoder(x)
             if self.proba_output:
