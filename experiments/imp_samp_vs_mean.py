@@ -1,4 +1,4 @@
-
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
@@ -45,6 +45,7 @@ class ModVariationalAutoencoder(VariationalAutoencoderV2):
             z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
             probability_mask = np.zeros(data_miss_val.shape)
             probability_mask[compl_ind] = 1
+            indicies_changes = []
             for i in range(max_iter):
                 if i == 0:
                     z_mean_logr, z_mean_log_p_Yc_z = self.get_weight_and_likelihood(z_mean, data_miss_val, z_Distribution, z_prior, probability_mask)
@@ -54,11 +55,15 @@ class ModVariationalAutoencoder(VariationalAutoencoderV2):
                     logweights.append(logr)
                     z_sample_l.append(z_l)
                     obs_higher_weight = sum(logr > z_mean_logr)
+                    indicies_changes += list(np.where(logr > z_mean_logr)[0])
                     logr_counter += obs_higher_weight
                     print(f'n obs with higher weight in round {i}: {obs_higher_weight}')
                     obs_higher_likelihood = sum(log_p_Yc_z > z_mean_log_p_Yc_z)
                     print(f'n obs with higher likelihood in round {i}: {obs_higher_likelihood}')
                     likelihood_counter += obs_higher_likelihood
+                plt.hist(indicies_changes, bins=133, range=[0,132])
+                plt.savefig('output/index_changes_zmean')
+                plt.show()
 
 
 
