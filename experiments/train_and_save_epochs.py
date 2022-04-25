@@ -1,4 +1,5 @@
 import datetime
+import pickle
 import tensorflow as tf
 import os
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
@@ -50,3 +51,5 @@ if __name__=="__main__":
             encoder_save_path = f"{outdir}encoder.keras"
             vae.encoder.save(encoder_save_path)
             vae.decoder.save(decoder_save_path)
+            # with open(outdir + 'train_history_dict.pickle', 'wb') as file_handle:
+            #     pickle.dump(history.history, file_handle)

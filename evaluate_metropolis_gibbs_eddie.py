@@ -22,7 +22,7 @@ if __name__=="__main__":
     decoder_path = model_dir +'20220421-15:49:01_decoder.keras'
     model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
-    np.isnan(data_missing).any(axis=0)
+    np.isnan(data_missing).any(axis=0) # todo remove this line of code?
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
    
