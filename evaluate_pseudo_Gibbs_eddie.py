@@ -15,20 +15,20 @@ if __name__=="__main__":
     args = parser.parse_args()
 
     model_dir = '/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/output/'
-    output_dir = model_dir + 'Metropolis-within-Gibbs/'
+    output_dir = model_dir + 'pseudo-Gibbs/'
     outname = 'plaus_dataset_' + args.dataset
     print(outname)
     encoder_path = model_dir + '20220423-14:22:36_encoder.keras'
     decoder_path = model_dir +'20220423-14:22:36_decoder.keras'
     model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
-    np.isnan(data_missing).any(axis=0) # todo remove this line of code?
+    np.isnan(data_missing).any(axis=0)
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
    
     # impute by metropolis-within-Gibbs 
     missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing, max_iter=10000,
-                                                               method="Metropolis-within-Gibbs")
+                                                               method="pseudo-Gibbs")
 
     # export output of m-th dataset
     data = scaler.inverse_transform(data)
