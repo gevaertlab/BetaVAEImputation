@@ -18,7 +18,7 @@ if __name__=="__main__":
         pass
     data, data_missing = get_scaled_data(put_nans_back=False)
     n_col = data.shape[1]
-    for dropout_rate in [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]:
+    for dropout_rate in [0.1, 0.2, 0.3, 0.4, 0.5]:
         network_architecture = \
             dict(n_hidden_recog_1=6000,  # 1st layer encoder neurons
                  n_hidden_recog_2=2000,  # 2nd layer encoder neurons
@@ -47,15 +47,15 @@ if __name__=="__main__":
         os.makedirs(model_savepath, exist_ok=True)
         epochs = 100
         for i in range(50):
-            history = vae.fit(x=data_missing, y=data_missing, epochs=epochs, batch_size=256) #  callbacks=[tensorboard_callback]
-            if i > 3 and loss < 19_000:
-                loss = int(round(history.history['loss'][-1] , 0))
+            history = vae.fit(x=data_missing, y=data_missing, epochs=epochs, batch_size=256)
+            loss = int(round(history.history['loss'][-1] , 0))#  callbacks=[tensorboard_callback]
+            if i > 2 and loss < 19_000:
                 outdir = model_savepath + f"epoch_{(i+1)*epochs}_loss_{loss}/"
                 decoder_save_path = f"{outdir}decoder.keras"
                 encoder_save_path = f"{outdir}encoder.keras"
                 vae.encoder.save(encoder_save_path)
                 vae.decoder.save(decoder_save_path)
-                if loss < 10000:
+                if loss < 11000:
                     break
                 with open(outdir + 'train_history_dict.pickle', 'wb') as file_handle:
                     pickle.dump(history.history, file_handle)
