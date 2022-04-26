@@ -19,18 +19,18 @@ def evaluate_variance(model, data_w_missingness, na_ind):
     x_hat_mean, x_hat_log_sigma_sq = model.predict(data_w_missingness)
     return np.mean(x_hat_log_sigma_sq.numpy()[na_ind])
 
-def generate_multiple_and_evaluate_coverage(model, data_w_missingness, na_ind):
+def generate_multiple_and_evaluate_coverage(model, data_complete, data_w_missingness, na_ind):
     multi_imputes_missing =[]
     m_datasets = 2
     for i in range(m_datasets):
         missing_imputed, convergence_loglik = model.impute_multiple(data_w_missingness, max_iter=10, method = "Metropolis-within-Gibbs")
         multi_imputes_missing.append(missing_imputed[na_ind])
-    results  = evaluate_coverage(multi_imputes_missing, data, data_missing_nan, scaler)
+    results  = evaluate_coverage(multi_imputes_missing, data_complete, data_missing_nan, scaler)
     return results
 
 
-def evaluate_model(model, data_w_missingness, na_ind, scaler):
-    coverage_results = generate_multiple_and_evaluate_coverage(model, data_w_missingness, na_ind)
+def evaluate_model(model, data_complete, data_w_missingness, na_ind, scaler):
+    coverage_results = generate_multiple_and_evaluate_coverage(model, data_complete, data_w_missingness, na_ind)
     all_mae = model.evaluate_on_true(data_w_missingness, data, n_recycles=6, loss='MAE', scaler=scaler)
     results = dict(
     mae = all_mae[-1],
@@ -60,6 +60,7 @@ if __name__=="__main__":
     args = sys.argv
     d_index = int(args[1]) -1
     data, data_missing_nan, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
+    data_complete = np.copy(data)
     missing_row_ind = np.where(np.isnan(data_missing_nan).any(axis=1))[0]
     data_w_missingness = data_missing_nan[missing_row_ind]
     na_ind = np.where(np.isnan(data_w_missingness))
@@ -91,7 +92,7 @@ if __name__=="__main__":
         loss = int(round(history.history['loss'][-1] , 0))#  callbacks=[tensorboard_callback]
         if loss < 11_000:
             break
-        results = evaluate_model(vae, data_w_missingness, na_ind, scaler)
+        results = evaluate_model(vae, data_complete, data_w_missingness, na_ind, scaler)
         completed_epochs = (i + 1) * epochs
         save_results(results, completed_epochs, dropout_rate)
         remove_lock()
