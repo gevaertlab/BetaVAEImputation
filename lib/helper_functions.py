@@ -122,6 +122,7 @@ def load_saved_model(config_path = 'JW_config_VAE.json'):
     os.chdir(running_directory)
     return vae
 
-
+if __name__=="__main__":
+    evaluate_coverage()
 
 
