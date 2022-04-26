@@ -33,14 +33,21 @@ def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=N
     prop_90 = sum(n_deviations < ci_90) / len(n_deviations)
     prop_95 = sum(n_deviations < ci_95) / len(n_deviations)
     prop_99 = sum(n_deviations < ci_99) / len(n_deviations)
-    print('prop 90:', prop_90)
-    print('prop 95:', prop_95)
-    print('prop 99:', prop_99)
+    results = {
+        'prop_90': prop_90,
+        'prop_95': prop_95,
+        'prop_99': prop_99
+    }
+    for k, v in results.items():
+        print(k,':', v)
     data = scaler.inverse_transform(data)
     data_missing[na_ind] = means
     data_missing = scaler.inverse_transform(data_missing)
     differences = np.abs(data[na_ind] - data_missing[na_ind])
-    print('average absolute error:', np.mean(differences))
+    MAE = np.mean(differences)
+    results['multi_mae'] = MAE
+    print('average absolute error:', MAE)
+    return results
 
 def get_scaled_data(return_scaler=False, put_nans_back=False):
     for _ in range(3):
