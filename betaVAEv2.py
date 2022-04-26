@@ -402,9 +402,9 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy()
                 X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
-                convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na).numpy())
+                convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])).numpy())
 
-            data_miss_val[na_ind] = x_hat_sample[na_ind]
+                data_miss_val[na_ind] = x_hat_sample[na_ind]
 
             return data_miss_val, convergence_loglik
         else:
