@@ -65,7 +65,7 @@ if __name__=="__main__":
     na_ind = np.where(np.isnan(data_w_missingness))
     data_missing = np.nan_to_num(data_missing_nan)
     n_col = data.shape[1]
-    dropout_rates = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]
+    dropout_rates = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     dropout_rate = dropout_rates[d_index]
     network_architecture = \
         dict(n_hidden_recog_1=6000,  # 1st layer encoder neurons
@@ -84,7 +84,7 @@ if __name__=="__main__":
     vae.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
     model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
     os.makedirs(model_savepath, exist_ok=True)
-    epochs = 2
+    epochs = 100
 
     for i in range(50):
         history = vae.fit(x=data_missing, y=data_missing, epochs=epochs, batch_size=256)
@@ -93,13 +93,3 @@ if __name__=="__main__":
         completed_epochs = (i + 1) * epochs
         save_results(results, completed_epochs, dropout_rate)
         remove_lock()
-        # if i > 2 and loss < 19_000:
-        #     outdir = model_savepath + f"epoch_{(i+1)*epochs}_loss_{loss}/"
-        #     decoder_save_path = f"{outdir}decoder.keras"
-        #     encoder_save_path = f"{outdir}encoder.keras"
-        #     vae.encoder.save(encoder_save_path)
-        #     vae.decoder.save(decoder_save_path)
-        #     if loss < 10000:
-        #         break
-        #     with open(outdir + 'train_history_dict.pickle', 'wb') as file_handle:
-        #         pickle.dump(history.history, file_handle)
