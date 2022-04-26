@@ -5,6 +5,9 @@ import numpy as np
 import pandas as pd
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 from tensorflow import keras
+os.chdir('/home/jwells/BetaVAEImputation')
+
+sys.path.append('/home/jwells/BetaVAEImputation')
 from lib.helper_functions import get_scaled_data, evaluate_coverage
 from betaVAEv2 import VariationalAutoencoderV2, Sampling
 
