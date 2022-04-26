@@ -58,7 +58,7 @@ def save_results(results, epoch, dropout, results_path='dropout_analysis.csv', l
 
 if __name__=="__main__":
     args = sys.argv
-    d_index = int(args[1])
+    d_index = int(args[1]) -1
     data, data_missing_nan, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     missing_row_ind = np.where(np.isnan(data_missing_nan).any(axis=1))[0]
     data_w_missingness = data_missing_nan[missing_row_ind]
@@ -89,6 +89,8 @@ if __name__=="__main__":
     for i in range(50):
         history = vae.fit(x=data_missing, y=data_missing, epochs=epochs, batch_size=256)
         loss = int(round(history.history['loss'][-1] , 0))#  callbacks=[tensorboard_callback]
+        if loss < 11_000:
+            break
         results = evaluate_model(vae, data_w_missingness, na_ind, scaler)
         completed_epochs = (i + 1) * epochs
         save_results(results, completed_epochs, dropout_rate)
