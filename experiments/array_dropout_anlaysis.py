@@ -5,9 +5,11 @@ import numpy as np
 import pandas as pd
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 from tensorflow import keras
-os.chdir('/home/jwells/BetaVAEImputation')
-
-sys.path.append('/home/jwells/BetaVAEImputation')
+try:
+    os.chdir('/home/jwells/BetaVAEImputation')
+    sys.path.append('/home/jwells/BetaVAEImputation')
+except:
+    pass
 from lib.helper_functions import get_scaled_data, evaluate_coverage
 from betaVAEv2 import VariationalAutoencoderV2, Sampling
 
@@ -18,26 +20,27 @@ def create_lock(path='lock.txt'):
 def remove_lock(path='lock.txt'):
     os.remove(path)
 
-def evaluate_variance(model, data_w_missingness, na_ind):
-    x_hat_mean, x_hat_log_sigma_sq = model.predict(data_w_missingness)
+def evaluate_variance(model, missing_w_nans, na_ind):
+    missing_w_zeros = np.nan_to_num(missing_w_nans)
+    x_hat_mean, x_hat_log_sigma_sq = model.predict(missing_w_zeros)
     return np.mean(x_hat_log_sigma_sq.numpy()[na_ind])
 
-def generate_multiple_and_evaluate_coverage(model, data_complete, data_w_missingness, na_ind):
+def generate_multiple_and_evaluate_coverage(model, missing_w_nans, full_complete, na_ind, scaler):
     multi_imputes_missing =[]
-    m_datasets = 2
+    m_datasets = 40
     for i in range(m_datasets):
-        missing_imputed, convergence_loglik = model.impute_multiple(data_w_missingness, max_iter=10, method = "Metropolis-within-Gibbs")
+        missing_imputed, convergence_loglik = model.impute_multiple(missing_w_nans, max_iter=1000, method = "Metropolis-within-Gibbs")
         multi_imputes_missing.append(missing_imputed[na_ind])
-    results  = evaluate_coverage(multi_imputes_missing, data_complete, data_missing_nan, scaler)
+    results  = evaluate_coverage(multi_imputes_missing, full_complete, missing_w_nans, scaler)
     return results
 
 
-def evaluate_model(model, data_complete, data_w_missingness, na_ind, scaler):
-    coverage_results = generate_multiple_and_evaluate_coverage(model, data_complete, data_w_missingness, na_ind)
-    all_mae = model.evaluate_on_true(data_w_missingness, data, n_recycles=6, loss='MAE', scaler=scaler)
+def evaluate_model(model, missing_w_nans, full_complete, missing_complete, na_ind, scaler):
+    coverage_results = generate_multiple_and_evaluate_coverage(model, np.copy(missing_w_nans), full_complete, na_ind, scaler)
+    all_mae = model.impute_single(np.copy(missing_w_nans), missing_complete, n_recycles=6, loss='MAE', scaler=scaler)
     results = dict(
     mae = all_mae[-1],
-    average_variance = evaluate_variance(model, np.nan_to_num(data_w_missingness), na_ind)
+    average_variance = evaluate_variance(model, missing_w_nans, na_ind)
     )
     for k,v in coverage_results.items():
         results[k] = v
@@ -69,8 +72,13 @@ if __name__=="__main__":
     na_ind = np.where(np.isnan(data_w_missingness))
     data_missing = np.nan_to_num(data_missing_nan)
     n_col = data.shape[1]
-    dropout_rates = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    dropout_rates = [0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+
     dropout_rate = dropout_rates[d_index]
+    if dropout_rate == 0:
+        dropout = False
+    else:
+        dropout = True
     network_architecture = \
         dict(n_hidden_recog_1=6000,  # 1st layer encoder neurons
              n_hidden_recog_2=2000,  # 2nd layer encoder neurons
@@ -83,7 +91,7 @@ if __name__=="__main__":
     encoder, decoder = None, None
     beta = 50
     lr = 0.00001
-    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=beta, dropout=True,
+    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=beta, dropout=dropout,
                                    pretrained_encoder=encoder, pretrained_decoder=decoder)
     vae.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
     model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
@@ -91,11 +99,16 @@ if __name__=="__main__":
     epochs = 100
 
     for i in range(50):
-        history = vae.fit(x=data_missing, y=data_missing, epochs=epochs, batch_size=256)
+        full_w_zeros = np.copy(data_missing) # 667 obs
+        full_complete = np.copy(data_complete) #667 obs
+        missing_w_nans = np.copy(data_w_missingness)
+        missing_complete = np.copy(data_complete[missing_row_ind])
+        history = vae.fit(x=full_w_zeros, y=full_w_zeros, epochs=epochs, batch_size=256)
         loss = int(round(history.history['loss'][-1] , 0))#  callbacks=[tensorboard_callback]
         if loss < 11_000:
             break
-        results = evaluate_model(vae, data_complete, data_w_missingness, na_ind, scaler)
+
+        results = evaluate_model(vae, missing_w_nans, full_complete, missing_complete, na_ind, scaler)
         completed_epochs = (i + 1) * epochs
         save_results(results, completed_epochs, dropout_rate)
         remove_lock()

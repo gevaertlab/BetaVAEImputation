@@ -212,7 +212,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
         return x_hat_mu # todo when implementing multiple imputation, will have to sample from N(x_hat_mu, x_hat_log_var)
 
 
-    def evaluate_on_true(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
+    def impute_single(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
+        assert data_complete.shape == data_corrupt.shape
         losses = []
         missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))[0]
         data_miss_val = np.copy(data_corrupt[missing_row_ind, :])
