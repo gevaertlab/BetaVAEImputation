@@ -27,9 +27,9 @@ def evaluate_variance(model, missing_w_nans, na_ind):
 
 def generate_multiple_and_evaluate_coverage(model, missing_w_nans, full_complete, na_ind, scaler):
     multi_imputes_missing =[]
-    m_datasets = 40
+    m_datasets = 3
     for i in range(m_datasets):
-        missing_imputed, convergence_loglik = model.impute_multiple(missing_w_nans, max_iter=1000, method = "Metropolis-within-Gibbs")
+        missing_imputed, convergence_loglik = model.impute_multiple(missing_w_nans, max_iter=2, method = "Metropolis-within-Gibbs")
         multi_imputes_missing.append(missing_imputed[na_ind])
     results  = evaluate_coverage(multi_imputes_missing, full_complete, missing_w_nans, scaler)
     return results
@@ -37,7 +37,7 @@ def generate_multiple_and_evaluate_coverage(model, missing_w_nans, full_complete
 
 def evaluate_model(model, missing_w_nans, full_complete, missing_complete, na_ind, scaler):
     coverage_results = generate_multiple_and_evaluate_coverage(model, np.copy(missing_w_nans), full_complete, na_ind, scaler)
-    _, all_mae = model.impute_single(np.copy(missing_w_nans), missing_complete, n_recycles=6, loss='MAE', scaler=scaler, return_losses=True)
+    _, _, all_mae = model.impute_single(np.copy(missing_w_nans), missing_complete, n_recycles=6, loss='MAE', scaler=scaler, return_losses=True)
     results = dict(
     mae = all_mae[-1],
     average_variance = evaluate_variance(model, missing_w_nans, na_ind)
@@ -96,7 +96,7 @@ if __name__=="__main__":
     vae.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
     model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
     os.makedirs(model_savepath, exist_ok=True)
-    epochs = 100
+    epochs = 1
 
     for i in range(50):
         full_w_zeros = np.copy(data_missing) # 667 obs
