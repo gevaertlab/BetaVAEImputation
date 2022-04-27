@@ -8,18 +8,14 @@ import matplotlib.pyplot as plt
 from betaVAEv2 import load_model_v2
 from lib.helper_functions import get_scaled_data, evaluate_coverage
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', type=str, default='1', help='m-th dataset you are generating via MI')
-
 if __name__=="__main__":
-    args = parser.parse_args()
 
-    model_dir = '/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/output/'
-    output_dir = model_dir + 'pseudo-Gibbs/'
-    outname = 'plaus_dataset_' + args.dataset
+    model_dir = 'output/epoch_1000_loss_14374.0/'
+    output_dir = model_dir + 'single_imputation/'
+    outname = 'single_imputed_dataset'
     print(outname)
-    encoder_path = model_dir + '20220423-14:22:36_encoder.keras'
-    decoder_path = model_dir +'20220423-14:22:36_decoder.keras'
+    encoder_path = model_dir + 'encoder.keras'
+    decoder_path = model_dir +'decoder.keras'
     model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     np.isnan(data_missing).any(axis=0)
@@ -27,8 +23,7 @@ if __name__=="__main__":
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
    
     # impute by metropolis-within-Gibbs 
-    missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing, max_iter=10000,
-                                                               method="pseudo-Gibbs")
+    missing_imputed = model.impute_single(data_corrupt=data_missing, data_complete = data, n_recycles=5)
 
     # export output of m-th dataset
     data = scaler.inverse_transform(data)
@@ -43,4 +38,3 @@ if __name__=="__main__":
     np.savetxt(output_dir + outname + ".csv", missing_imputed, delimiter=",")
 
     print("Mean Absolute Error:", sum(((missing_imputed[na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0]))
-

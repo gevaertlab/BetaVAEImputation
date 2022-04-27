@@ -211,7 +211,6 @@ class VariationalAutoencoderV2(tf.keras.Model):
             x_hat_mu, x_hat_log_var = self.decoder(z_mean)
         return x_hat_mu # todo when implementing multiple imputation, will have to sample from N(x_hat_mu, x_hat_log_var)
 
-
     def impute_single(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
         assert data_complete.shape == data_corrupt.shape
         losses = []
@@ -237,7 +236,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             elif loss =='all':
                 multi_loss_dict = calculate_losses(target_values, predictions)
                 losses.append(multi_loss_dict)
-        return losses
+        return data_miss_val
 
     def impute_multiple(self, data_corrupt, max_iter=10, m = 50, method = 'pseudo-Gibbs'):
         missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
