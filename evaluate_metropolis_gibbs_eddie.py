@@ -26,7 +26,7 @@ if __name__=="__main__":
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
    
     # impute by metropolis-within-Gibbs 
-    missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing, max_iter=10000,
+    missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing, max_iter=1000,
                                                                method="Metropolis-within-Gibbs")
 
     # export output of m-th dataset

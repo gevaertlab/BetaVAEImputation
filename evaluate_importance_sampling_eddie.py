@@ -26,7 +26,7 @@ if __name__=="__main__":
    
     # impute by importance sampling
     # output will be a list of all m datasets imputed by importance sampling (missing observations only)
-    missing_imputed, ess = model.impute_multiple(data_corrupt=data_missing, max_iter=10000, 
+    missing_imputed, ess = model.impute_multiple(data_corrupt=data_missing, max_iter=1000, 
                                                                 m = m_datasets, method="importance sampling2")
     missing_imputed = np.array(missing_imputed)
 
