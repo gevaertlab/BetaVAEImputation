@@ -29,7 +29,7 @@ def generate_multiple_and_evaluate_coverage(model, missing_w_nans, full_complete
     multi_imputes_missing =[]
     m_datasets = 40
     for i in range(m_datasets):
-        missing_imputed, convergence_loglik = model.impute_multiple(missing_w_nans, max_iter=500, method = "Metropolis-within-Gibbs")
+        missing_imputed, convergence_loglik = model.impute_multiple(missing_w_nans, max_iter=50, method = "Metropolis-within-Gibbs")
         multi_imputes_missing.append(missing_imputed[na_ind])
     results  = evaluate_coverage(multi_imputes_missing, full_complete, missing_w_nans, scaler)
     return results
@@ -96,9 +96,9 @@ if __name__=="__main__":
     vae.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
     model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
     os.makedirs(model_savepath, exist_ok=True)
-    epochs = 100
+    epochs = 200
 
-    for i in range(50):
+    for i in range(25):
         full_w_zeros = np.copy(data_missing) # 667 obs
         full_complete = np.copy(data_complete) #667 obs
         missing_w_nans = np.copy(data_w_missingness)
