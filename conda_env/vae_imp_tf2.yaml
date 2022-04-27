@@ -1,0 +1,12 @@
+name: vae_imp_tf2
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - matplotlib
+  - tensorflow-probability
+  - scikit-learn
+  - pandas
+  - tensorflow
+
