@@ -23,7 +23,7 @@ if __name__=="__main__":
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
    
     # impute by metropolis-within-Gibbs 
-    missing_imputed = model.impute_single(data_corrupt=data_missing, data_complete = data, n_recycles=5)
+    missing_imputed, conv = model.impute_single(data_corrupt=data_missing, data_complete = data, n_recycles=5)
 
     # export output of m-th dataset
     data = scaler.inverse_transform(data)

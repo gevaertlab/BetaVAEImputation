@@ -214,17 +214,23 @@ class VariationalAutoencoderV2(tf.keras.Model):
     def impute_single(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
         assert data_complete.shape == data_corrupt.shape
         losses = []
+        convergence_loglik = []
         missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))[0]
         data_miss_val = np.copy(data_corrupt[missing_row_ind, :])
         true_values_for_missing = data_complete[missing_row_ind, :]
         na_ind = np.where(np.isnan(data_miss_val))
         data_miss_val[na_ind] = 0
         for i in range(n_recycles):
-            data_reconstruct, x_hat_log_var = self.reconstruct(data_miss_val).numpy()
+            data_reconstruct, x_hat_log_sigma_sq = self.reconstruct(data_miss_val)
+            data_reconstruct = data_reconstruct.numpy()
+            x_hat_log_sigma_sq = x_hat_log_sigma_sq.numpy()
             data_miss_val[na_ind] = data_reconstruct[na_ind]
 
             # Log likelihood at each iteration
-             
+            x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
+            X_hat_distribution_na = tfp.distributions.Normal(loc=data_reconstruct[na_ind], scale=x_hat_sigma[na_ind])
+            convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(data_reconstruct[na_ind])).numpy()) 
+            
             if scaler is not None:
                 predictions = np.copy(scaler.inverse_transform(data_reconstruct)[na_ind])
                 target_values = np.copy(scaler.inverse_transform(true_values_for_missing)[na_ind])
@@ -239,7 +245,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
             elif loss =='all':
                 multi_loss_dict = calculate_losses(target_values, predictions)
                 losses.append(multi_loss_dict)
-        return data_miss_val
+
+        return data_miss_val, convergence_loglik
 
     def impute_multiple(self, data_corrupt, max_iter=10, m = 50, method = 'pseudo-Gibbs'):
         missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
