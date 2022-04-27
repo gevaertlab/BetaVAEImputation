@@ -246,9 +246,9 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 multi_loss_dict = calculate_losses(target_values, predictions)
                 losses.append(multi_loss_dict)
         if return_losses:
-            return data_miss_val, losses
+            return data_miss_val, convergence_loglik, losses
         else:
-            return data_miss_val
+            return data_miss_val, convergence_loglik
 
     def impute_multiple(self, data_corrupt, max_iter=10, m = 50, method = 'pseudo-Gibbs'):
         missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
