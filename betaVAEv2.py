@@ -250,7 +250,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
         else:
             return data_miss_val, convergence_loglik
 
-    def impute_multiple(self, data_corrupt, max_iter=10, m = 50, method = 'pseudo-Gibbs'):
+    def impute_multiple(self, data_corrupt, max_iter=10, m = 1, method = 'pseudo-Gibbs'):
         missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
         data_miss_val = data_corrupt[missing_row_ind[0],:]
         na_ind = np.where(np.isnan(data_miss_val))
@@ -305,7 +305,6 @@ class VariationalAutoencoderV2(tf.keras.Model):
                         na_ind_of_accepted = np.where(np.isnan(data_miss_val[acceptance_indicies]))
                         data_miss_val[acceptance_indicies][na_ind_of_accepted] = x_hat_sample[acceptance_indicies][na_ind_of_accepted]
             return data_miss_val, convergence_loglik
-
 
         elif method == "importance sampling2":
             n_samp = data_miss_val.shape[0]
