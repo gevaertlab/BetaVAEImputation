@@ -41,6 +41,6 @@ if __name__=="__main__":
 
     na_indices.to_csv(output_dir+'NA_imputed_values_' + outname + '.csv')
     np.savetxt(output_dir + outname + ".csv", missing_imputed, delimiter=",")
+    np.savetxt(output_dir + 'loglikelihood_across_iterations' + outname + '.csv', np.array(convergence_loglik), delimiter=',')
 
     print("Mean Absolute Error:", sum(((missing_imputed[na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0]))
-
