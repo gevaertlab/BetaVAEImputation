@@ -34,12 +34,13 @@ if __name__=="__main__":
     data = scaler.inverse_transform(data)
     missing_imputed = scaler.inverse_transform(missing_imputed)
 
-    na_indices = pd.DataFrame({'true_values': data[na_ind], outname: missing_imputed[na_ind]})
+    truevals_data_missing = data[missing_rows]
+    na_indices = pd.DataFrame({'true_values': truevals_data_missing[na_ind], outname: missing_imputed[na_ind]})
 
     os.makedirs(output_dir, exist_ok=True)
 
     na_indices.to_csv(output_dir+'NA_imputed_values_' + outname + '.csv')
     np.savetxt(output_dir + outname + ".csv", missing_imputed, delimiter=",")
 
-    print("Mean Absolute Error:", sum(((missing_imputed[na_ind] - data[na_ind])**2)**0.5)/len(na_ind[0]))
+    print("Mean Absolute Error:", sum(((missing_imputed[na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0]))
 
