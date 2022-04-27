@@ -37,7 +37,7 @@ def generate_multiple_and_evaluate_coverage(model, missing_w_nans, full_complete
 
 def evaluate_model(model, missing_w_nans, full_complete, missing_complete, na_ind, scaler):
     coverage_results = generate_multiple_and_evaluate_coverage(model, np.copy(missing_w_nans), full_complete, na_ind, scaler)
-    all_mae = model.impute_single(np.copy(missing_w_nans), missing_complete, n_recycles=6, loss='MAE', scaler=scaler)
+    _, all_mae = model.impute_single(np.copy(missing_w_nans), missing_complete, n_recycles=6, loss='MAE', scaler=scaler, return_losses=True)
     results = dict(
     mae = all_mae[-1],
     average_variance = evaluate_variance(model, missing_w_nans, na_ind)
