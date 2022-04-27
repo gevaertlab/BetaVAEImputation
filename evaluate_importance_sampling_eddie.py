@@ -44,4 +44,4 @@ if __name__=="__main__":
         np.savetxt(output_dir + outname + ".csv", missing_imputed[i], delimiter=",")
         print("Mean Absolute Error:", sum(((missing_imputed[i][na_ind] - truevals_data_missing[na_ind])**2)**0.5)/len(na_ind[0])) 
 
-    np.savetxt(output_dir + 'importance_sampling_ESS_' + str(len(ess)) + '_samples''.csv', np.array(ess), delimited=',')
+    np.savetxt(output_dir + 'importance_sampling_ESS_' + str(len(ess)) + '_samples''.csv', np.array(ess), delimiter=',')
