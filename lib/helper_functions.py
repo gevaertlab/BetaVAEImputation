@@ -17,6 +17,7 @@ from sklearn.preprocessing import StandardScaler
 
 
 def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=None):
+    assert data_missing.shape == data.shape
     if multi_imputes is None:
         # '../output/non_masked_beta100_lr1e-05/multi_impute.pickle'
         with open('../output/non_masked_beta50_lr1e-05/multi_impute.pickle', 'rb') as filehandle:

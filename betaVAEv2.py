@@ -265,7 +265,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             for i in range(max_iter):
                 print("Running imputation iteration", i+1)
                 z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
-                x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp) # todo check if this equivalent to the operation in V1
+                x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
                 X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy()
