@@ -209,7 +209,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             x_hat_mu, x_hat_log_var = self.decoder(z)
         else:
             x_hat_mu, x_hat_log_var = self.decoder(z_mean)
-        return x_hat_mu # todo when implementing multiple imputation, will have to sample from N(x_hat_mu, x_hat_log_var)
+        return x_hat_mu, x_hat_log_var # todo when implementing multiple imputation, will have to sample from N(x_hat_mu, x_hat_log_var)
 
     def impute_single(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None):
         losses = []
@@ -219,8 +219,11 @@ class VariationalAutoencoderV2(tf.keras.Model):
         na_ind = np.where(np.isnan(data_miss_val))
         data_miss_val[na_ind] = 0
         for i in range(n_recycles):
-            data_reconstruct = self.reconstruct(data_miss_val).numpy()
+            data_reconstruct, x_hat_log_var = self.reconstruct(data_miss_val).numpy()
             data_miss_val[na_ind] = data_reconstruct[na_ind]
+
+            # Log likelihood at each iteration
+             
             if scaler is not None:
                 predictions = np.copy(scaler.inverse_transform(data_reconstruct)[na_ind])
                 target_values = np.copy(scaler.inverse_transform(true_values_for_missing)[na_ind])
