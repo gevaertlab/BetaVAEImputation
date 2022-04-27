@@ -1,6 +1,6 @@
 import numpy as np
 from betaVAEv2 import load_model_v2
-from array_dropout_anlaysis import evaluate_model
+from array_dropout_analysis import evaluate_model
 from lib.helper_functions import get_scaled_data
 
 model_dir = '../output/new_trained_model/epoch_1000/'

@@ -13,7 +13,7 @@ except:
 from lib.helper_functions import get_scaled_data, evaluate_coverage
 from betaVAEv2 import VariationalAutoencoderV2, Sampling
 
-from experiments.array_dropout_anlaysis import remove_lock, evaluate_model, create_lock
+from experiments.array_dropout_analysis import remove_lock, evaluate_model, create_lock
 
 def save_results(results, epoch, beta, results_path='beta_analysis.csv', lock_path='lock.txt'):
     if not os.path.exists(results_path):
@@ -62,7 +62,7 @@ if __name__=="__main__":
     # os.makedirs(model_savepath, exist_ok=True)
     epochs = 125
 
-    for i in range(20):
+    for i in range(25):
         full_w_zeros = np.copy(data_missing) # 667 obs
         full_complete = np.copy(data_complete) #667 obs
         missing_w_nans = np.copy(data_w_missingness)

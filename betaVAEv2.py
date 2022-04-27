@@ -3,6 +3,10 @@ import pickle
 import numpy as np
 import random
 import tensorflow as tf
+try:
+    print(tf.config.list_physical_devices())
+except:
+    pass
 import tensorflow_probability as tfp
 # from tf.keras import layers
 from sklearn.metrics import r2_score
