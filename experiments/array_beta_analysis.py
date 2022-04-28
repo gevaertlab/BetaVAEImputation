@@ -61,15 +61,16 @@ if __name__=="__main__":
     # model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
     # os.makedirs(model_savepath, exist_ok=True)
     epochs = 125
-
-    for i in range(25):
+    n_epochs_dict = {0.1: 400, 0.5:400, 1:400, 2:500, 4:500, 8:600, 12:700, 24:1000, 32:1200, 50:1400, 64:1600, 100:2500, 128:3000}
+    rounds = int(n_epochs_dict[beta] / epochs) + 1
+    for i in range(rounds):
         full_w_zeros = np.copy(data_missing) # 667 obs
         full_complete = np.copy(data_complete) #667 obs
         missing_w_nans = np.copy(data_w_missingness)
         missing_complete = np.copy(data_complete[missing_row_ind])
         history = model.fit(x=full_w_zeros, y=full_w_zeros, epochs=epochs, batch_size=256)
         loss = int(round(history.history['loss'][-1] , 0))#  callbacks=[tensorboard_callback]
-        if loss < 11_000:
+        if loss < 1000:
             break
         results = evaluate_model(model, missing_w_nans, missing_complete, na_ind, scaler)
         completed_epochs = (i + 1) * epochs
