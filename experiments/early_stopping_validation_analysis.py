@@ -66,17 +66,9 @@ if __name__=="__main__":
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
     # model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
     # os.makedirs(model_savepath, exist_ok=True)
-    epochs = 32
-    ci_90 = []
-    ci_95 = []
-    ci_99 = []
-    single_mae = []
-    multi_mae = []
-    val_ci_90 = []
-    val_ci_95 = []
-    val_ci_99 = []
+    epochs = 50
 
-    for i in range(100):
+    for i in range(50):
         full_w_zeros = np.copy(data_missing) # 667 obs
         full_complete = np.copy(data_complete) #667 obs
         missing_w_nans = np.copy(data_w_missingness)
