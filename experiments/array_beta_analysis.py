@@ -14,6 +14,7 @@ from lib.helper_functions import get_scaled_data, evaluate_coverage
 from betaVAEv2 import VariationalAutoencoderV2, Sampling
 
 from experiments.array_dropout_analysis import remove_lock, evaluate_model, create_lock
+from experiments.early_stopping_validation_analysis import get_additional_masked_data
 
 def save_results(results, epoch, beta, results_path='beta_analysis.csv', lock_path='lock.txt'):
     if not os.path.exists(results_path):
@@ -38,8 +39,9 @@ if __name__=="__main__":
     data_w_missingness = data_missing_nan[missing_row_ind]
     na_ind = np.where(np.isnan(data_w_missingness))
     data_missing = np.nan_to_num(data_missing_nan)
+    validation_input, validation_target, val_na_ind = get_additional_masked_data(data_missing_nan)
     n_col = data.shape[1]
-    beta_rates = [0.1, 0.5, 1, 2, 4, 8, 12, 24, 32, 50, 64, 100, 128]
+    beta_rates = [0.1, 0.5, 1, 2, 4, 8, 12, 24, 32, 50, 64, 100, 150, 200, 300]
     beta = beta_rates[d_index]
     dropout = False
 
@@ -61,7 +63,7 @@ if __name__=="__main__":
     # model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
     # os.makedirs(model_savepath, exist_ok=True)
     epochs = 125
-    n_epochs_dict = {0.1: 400, 0.5:400, 1:400, 2:500, 4:500, 8:600, 12:700, 24:1000, 32:1200, 50:1400, 64:1600, 100:2500, 128:3000}
+    n_epochs_dict = {0.1: 400, 0.5:400, 1:400, 2:500, 4:500, 8:600, 12:700, 24:1000, 32:1200, 50:1400, 64:1600, 150:2500, 200:3000, 300:6000}
     rounds = int(n_epochs_dict[beta] / epochs) + 1
     for i in range(rounds):
         full_w_zeros = np.copy(data_missing) # 667 obs
@@ -73,6 +75,10 @@ if __name__=="__main__":
         if loss < 1000:
             break
         results = evaluate_model(model, missing_w_nans, missing_complete, na_ind, scaler)
+        validation_results = evaluate_model(model, validation_input, validation_target, val_na_ind, scaler)
         completed_epochs = (i + 1) * epochs
         save_results(results, completed_epochs, beta, results_path='beta_analysis.csv')
         remove_lock()
+        save_results(validation_results, completed_epochs, beta, results_path='val_beta_analysis.csv')
+        remove_lock()
+
