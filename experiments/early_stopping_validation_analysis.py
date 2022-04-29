@@ -10,7 +10,7 @@ try:
     sys.path.append('/home/jwells/BetaVAEImputation')
 except:
     pass
-from lib.helper_functions import get_scaled_data, evaluate_coverage
+from lib.helper_functions import get_scaled_data, DataMissingMaker
 from betaVAEv2 import VariationalAutoencoderV2, Sampling
 
 from experiments.array_dropout_analysis import remove_lock, evaluate_model, create_lock
@@ -29,10 +29,17 @@ def save_results(results, epoch, beta, results_path='beta_analysis.csv', lock_pa
     df  = df.append(results, ignore_index=True)
     df.to_csv(results_path, index=False)
 
+def get_additional_masked_data(complete_w_nan):
+    complete_row_index = np.where(np.isfinite(complete_w_nan).all(axis=1))[0]
+    complete_only = complete_w_nan[complete_row_index]
+    miss_maker = DataMissingMaker(complete_only, prop_miss_rows=1, prop_miss_col=0.2)
+    extra_missing_validation =  miss_maker.generate_missing_data()
+    val_na_ind = np.where(np.isnan(extra_missing_validation))
+    return extra_missing_validation, complete_only, val_na_ind
+
 if __name__=="__main__":
-    args = sys.argv
-    d_index = int(args[1]) -1
     data, data_missing_nan, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
+    validation_input, validation_target, val_na_ind = get_additional_masked_data(data_missing_nan)
     data_complete = np.copy(data)
     missing_row_ind = np.where(np.isnan(data_missing_nan).any(axis=1))[0]
     data_w_missingness = data_missing_nan[missing_row_ind]
@@ -59,7 +66,16 @@ if __name__=="__main__":
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
     # model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
     # os.makedirs(model_savepath, exist_ok=True)
-    epochs = 20
+    epochs = 32
+    ci_90 = []
+    ci_95 = []
+    ci_99 = []
+    single_mae = []
+    multi_mae = []
+    val_ci_90 = []
+    val_ci_95 = []
+    val_ci_99 = []
+
     for i in range(100):
         full_w_zeros = np.copy(data_missing) # 667 obs
         full_complete = np.copy(data_complete) #667 obs
@@ -67,9 +83,10 @@ if __name__=="__main__":
         missing_complete = np.copy(data_complete[missing_row_ind])
         history = model.fit(x=full_w_zeros, y=full_w_zeros, epochs=epochs, batch_size=256)
         loss = int(round(history.history['loss'][-1] , 0))#  callbacks=[tensorboard_callback]
-        if loss < 1000:
-            break
         results = evaluate_model(model, missing_w_nans, missing_complete, na_ind, scaler)
+        validation_results = evaluate_model(model, validation_input, validation_target, val_na_ind, scaler)
         completed_epochs = (i + 1) * epochs
-        save_results(results, completed_epochs, beta, results_path='beta_analysis.csv')
+        save_results(results, completed_epochs, beta, results_path='epoch_analysis.csv')
+        remove_lock()
+        save_results(validation_results, completed_epochs, beta, results_path='val_epoch_analysis.csv')
         remove_lock()
