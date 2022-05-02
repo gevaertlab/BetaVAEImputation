@@ -132,7 +132,7 @@ def load_saved_model(config_path = 'JW_config_VAE.json'):
     return vae
 
 class DataMissingMaker:
-    def __init__(self, complete_only, prop_miss_rows=1, prop_miss_col=0.1):
+    def __init__(self, complete_only, prop_miss_rows=1, prop_miss_col=1):
         self.data = complete_only
         self.n_col = self.data.shape[1]
         self.prop_miss_rows = prop_miss_rows
