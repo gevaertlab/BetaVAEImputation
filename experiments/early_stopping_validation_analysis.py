@@ -39,7 +39,7 @@ def get_additional_masked_data(complete_w_nan):
 
 if __name__=="__main__":
     data, data_missing_nan, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
-    validation_input, validation_target, val_na_ind = get_additional_masked_data(data_missing_nan, prop_miss_rows=0.5)
+    validation_input, validation_target, val_na_ind = get_additional_masked_data(data_missing_nan)
     data_complete = np.copy(data)
     missing_row_ind = np.where(np.isnan(data_missing_nan).any(axis=1))[0]
     data_w_missingness = data_missing_nan[missing_row_ind]
