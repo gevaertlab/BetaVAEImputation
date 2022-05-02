@@ -39,7 +39,7 @@ if __name__=="__main__":
     data_w_missingness = data_missing_nan[missing_row_ind]
     na_ind = np.where(np.isnan(data_w_missingness))
     data_missing = np.nan_to_num(data_missing_nan)
-    validation_input, validation_target, val_na_ind = get_additional_masked_data(data_missing_nan)
+    validation_input, validation_target, val_na_ind = get_additional_masked_data(data_missing_nan, prop_miss_rows=0.5)
     n_col = data.shape[1]
     beta_rates = [0.1, 0.5, 1, 2, 4, 8, 12, 24, 32, 50, 64, 100, 150, 200, 300]
     beta = beta_rates[d_index]
