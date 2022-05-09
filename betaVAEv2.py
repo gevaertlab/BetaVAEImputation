@@ -3,6 +3,10 @@ import pickle
 import numpy as np
 import random
 import tensorflow as tf
+try:
+    print(tf.config.list_physical_devices())
+except:
+    pass
 import tensorflow_probability as tfp
 # from tf.keras import layers
 from sklearn.metrics import r2_score
@@ -265,7 +269,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             for i in range(max_iter):
                 print("Running imputation iteration", i+1)
                 z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
-                x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp) # todo check if this equivalent to the operation in V1
+                x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
                 X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy()

@@ -8,11 +8,7 @@ import matplotlib.pyplot as plt
 from betaVAEv2 import load_model_v2
 from lib.helper_functions import get_scaled_data, evaluate_coverage
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', type=str, default='1', help='m-th dataset you are generating via MI')
-
 if __name__=="__main__":
-    args = parser.parse_args()
 
     try:
         # If on eddie

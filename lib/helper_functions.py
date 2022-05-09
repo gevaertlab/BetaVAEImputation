@@ -17,6 +17,7 @@ from sklearn.preprocessing import StandardScaler
 
 
 def evaluate_coverage(multi_imputes=None, data=None, data_missing=None, scaler=None):
+    assert data_missing.shape == data.shape
     if multi_imputes is None:
         # '../output/non_masked_beta100_lr1e-05/multi_impute.pickle'
         with open('../output/non_masked_beta50_lr1e-05/multi_impute.pickle', 'rb') as filehandle:
@@ -129,6 +130,31 @@ def load_saved_model(config_path = 'JW_config_VAE.json'):
                                  batch_size=batch_size, istrain=False, restore_path=rp, beta=beta)
     os.chdir(running_directory)
     return vae
+
+class DataMissingMaker:
+    def __init__(self, complete_only, prop_miss_rows=1, prop_miss_col=1):
+        self.data = complete_only
+        self.n_col = self.data.shape[1]
+        self.prop_miss_rows = prop_miss_rows
+        self.prop_miss_col = prop_miss_col
+        self.n_rows_to_null = int(len(complete_only) * prop_miss_rows)
+
+
+    def get_random_col_selection(self):
+        n_cols_to_null = np.random.binomial(n=self.n_col, p=self.prop_miss_col)
+        return np.random.choice(range(self.n_col), n_cols_to_null, replace=False)
+
+    def generate_missing_data(self):
+        random_rows = np.random.choice(range(len(self.data)), self.n_rows_to_null, replace=False)
+        null_col_indexes = [self.get_random_col_selection() for _ in range(self.n_rows_to_null)]
+        null_row_indexes = [np.repeat(row, repeats=len(null_col_indexes[i])) for i, row in enumerate(random_rows)]
+        null_col_indexes = np.array([inner[j] for inner in null_col_indexes for j in range(len(inner))])
+        null_row_indexes = np.array([inner[j] for inner in null_row_indexes for j in range(len(inner))])
+        new_masked_x = np.copy(self.data)
+        new_masked_x[null_row_indexes, null_col_indexes] = np.nan
+        return new_masked_x
+
+
 
 if __name__=="__main__":
     evaluate_coverage()
