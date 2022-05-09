@@ -14,6 +14,22 @@ parser.add_argument('--dataset', type=str, default='1', help='m-th dataset you a
 if __name__=="__main__":
     args = parser.parse_args()
 
+    try:
+        # If on eddie
+        os.chdir("/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/")
+        model_dir = '/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/output/'
+        encoder_path = model_dir + '20220423-14:22:36_encoder.keras'
+        decoder_path = model_dir +'20220423-14:22:36_decoder.keras'
+        m_datasets = 40
+        max_iter = 1000
+    except FileNotFoundError:
+        # If local
+        model_dir = 'output/epoch_1000_loss_14374.0/'
+        encoder_path = model_dir + 'encoder.keras'
+        decoder_path = model_dir + 'decoder.keras'
+        m_datasets = 3
+        max_iter = 5
+
     model_dir = '/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/output/'
     output_dir = model_dir + 'Metropolis-within-Gibbs/'
     outname = 'plaus_dataset_' + args.dataset
@@ -27,7 +43,7 @@ if __name__=="__main__":
    
     # impute by metropolis-within-Gibbs 
     missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing, max_iter=1000,
-                                                               method="Metropolis-within-Gibbs")
+                                                               beta = 50, method="Metropolis-within-Gibbs")
 
     # export output of m-th dataset
     data = scaler.inverse_transform(data)
