@@ -39,7 +39,6 @@ if __name__=="__main__":
     data_w_missingness = data_missing_nan[missing_row_ind]
     na_ind = np.where(np.isnan(data_w_missingness))
     data_missing = np.nan_to_num(data_missing_nan)
-    validation_input, validation_target, val_na_ind = get_additional_masked_data(data_missing_nan)
     n_col = data.shape[1]
     beta_rates = [0.1, 0.5, 1, 2, 4, 6, 8, 12, 24, 32, 50, 64, 100, 150]
     beta = beta_rates[d_index]
@@ -75,10 +74,7 @@ if __name__=="__main__":
         if loss < 1000:
             break
         results = evaluate_model(model, missing_w_nans, missing_complete, na_ind, scaler)
-        validation_results = evaluate_model(model, validation_input, validation_target, val_na_ind, scaler)
         completed_epochs = (i + 1) * epochs
         save_results(results, completed_epochs, beta, results_path='beta_analysis3.csv')
-        remove_lock()
-        save_results(validation_results, completed_epochs, beta, results_path='val_beta_analysis3.csv')
         remove_lock()
 
