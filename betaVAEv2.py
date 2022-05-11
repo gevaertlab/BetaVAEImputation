@@ -272,8 +272,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
                 X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma)
-                X_hat_sampling_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
-                x_hat_sample = X_hat_sampling_distribution.sample().numpy()
+                x_hat_sample = X_hat_distribution.sample().numpy()
                 X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=np.sqrt(beta)*x_hat_sigma[na_ind])
                 convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind]).numpy()))
 
@@ -348,8 +347,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 samp_m_obs = np.array(random.choices(population = z_sample_l_byobs[s], weights=prob_weights_s, k=m))
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(samp_m_obs)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-                X_hat_sampling_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma) # update variance of Xhat wrt beta coefficient
-                x_hat_sample = X_hat_sampling_distribution.sample().numpy()
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma) # update variance of Xhat wrt beta coefficient
+                x_hat_sample = X_hat_distribution.sample().numpy()
                 sampled_datasets.append(x_hat_sample)
                 eff_samp_size = 1/np.sum(np.square(prob_weights_s))
                 print('ESS:', eff_samp_size)
@@ -364,6 +363,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 mult_imp_datasets.append(np.copy(data_miss_val)) 
 
             return mult_imp_datasets, ess
+
 
         elif method == "pseudo-Gibbs":
             for i in range(max_iter):
