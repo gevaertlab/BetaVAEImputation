@@ -67,7 +67,7 @@ if __name__=="__main__":
     # model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
     # os.makedirs(model_savepath, exist_ok=True)
     # all_epochs = [25, 50, 100, 200, 400, 600, 800, 1000, 1250, 1500, 1750, 2250, 2750, 3250]
-    all_epochs = [25, 25, 50,  100, 200, 200, 200, 200,  250,  250,  250,  500,  500,  500]
+    all_epochs = [5, 25, 50,  100, 200, 200, 200, 200,  250,  250,  250,  500,  500,  500]
     for i in range(len(all_epochs)):
         epochs = all_epochs[i]
         full_w_zeros = np.copy(data_missing) # 667 obs
