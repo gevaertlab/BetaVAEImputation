@@ -254,7 +254,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
         else:
             return data_miss_val, convergence_loglik
 
-    def impute_multiple(self, data_corrupt, max_iter=10, m = 1, method = 'pseudo-Gibbs'):
+    def impute_multiple(self, data_corrupt, max_iter=10, m = 1, beta = 1, method = 'pseudo-Gibbs'):
         missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
         data_miss_val = data_corrupt[missing_row_ind[0],:]
         na_ind = np.where(np.isnan(data_miss_val))
@@ -271,9 +271,9 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy()
-                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
+                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=np.sqrt(beta)*x_hat_sigma[na_ind])
                 convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind]).numpy()))
 
                 if i == 0:
@@ -285,7 +285,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 else:
                     # Define distributions
                     z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
-                    X_hat_distr_s_minus_1 = tfp.distributions.Normal(loc=x_hat_mean_s_minus_1, scale=tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
+                    X_hat_distr_s_minus_1 = tfp.distributions.Normal(loc=x_hat_mean_s_minus_1, scale=np.sqrt(beta)*tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
 
                     # Calculate log likelihood for previous and new sample to calculate acceptance probability with
                     log_q_z_star = tf.reduce_sum(z_Distribution.log_prob(z_samp), axis=1).numpy()
@@ -322,7 +322,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 z_l = z_Distribution.sample().numpy()
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_l)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma)
                 log_p_Yc_z = tf.reduce_sum(X_hat_distribution.log_prob(data_miss_val).numpy() * probability_mask, axis=1).numpy()
                 log_p_z = tf.reduce_sum(z_prior.log_prob(z_l), axis=1).numpy()
                 log_q_z_Y = tf.reduce_sum(z_Distribution.log_prob(z_l), axis=1).numpy()
@@ -347,8 +347,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 samp_m_obs = np.array(random.choices(population = z_sample_l_byobs[s], weights=prob_weights_s, k=m))
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(samp_m_obs)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
-                x_hat_sample = X_hat_distribution.sample().numpy() 
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma) # update variance of Xhat wrt beta coefficient
+                x_hat_sample = X_hat_distribution.sample().numpy()
                 sampled_datasets.append(x_hat_sample)
                 eff_samp_size = 1/np.sum(np.square(prob_weights_s))
                 print('ESS:', eff_samp_size)
@@ -364,59 +364,15 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
             return mult_imp_datasets, ess
 
-        elif method == "importance sampling":
-            logweights = []
-            x_hat_sample_l = []
-            z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
-            z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
-            for i in range(max_iter):
-                z_l = z_Distribution.sample().numpy() 
-                x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_l) # todo check if this equivalent to the operation in V1
-                x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
-                x_hat_sample = X_hat_distribution.sample().numpy()
-                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
-                X_hat_distribution_compl = tfp.distributions.Normal(loc=x_hat_mean[compl_ind], scale=x_hat_sigma[compl_ind]) 
-                convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])).numpy())
-
-                xm = x_hat_sample[na_ind]
-
-                log_p_Yc_z = tf.reduce_sum(X_hat_distribution_compl.log_prob(data_miss_val[compl_ind])).numpy()
-                log_p_z = tf.reduce_sum(z_prior.log_prob(z_l)).numpy()
-                log_q_z_Y = tf.reduce_sum(z_Distribution.log_prob(z_l)).numpy()
-
-                # because r goes to infinity, we will keep in log form for simplification of probabilities 
-                logr = log_p_Yc_z+log_p_z-log_q_z_Y
-
-                logweights.append(logr)
-                x_hat_sample_l.append(xm)
-
-            prob_weights = []
-            for l in range(len(logweights)):
-                # here i'm implementing a trick using exponent laws s.t. the numerator/denominator are finite
-                p_l = 1/np.sum(np.exp(logweights - logweights[l]))
-                prob_weights.append(p_l)          
-
-            # Now sample from x_hat_sample_l with probability = prob_weights and assign missing value indices to those sampled values
-            samp = random.choices(population=x_hat_sample_l, weights=prob_weights,k=m)
-
-            # Replace sampled values to m data_miss_vals
-            mult_imp_datasets = []
-            for j in range(m):
-                data_miss_val[na_ind] = samp[j]
-                mult_imp_datasets.append(np.copy(data_miss_val))
-
-            # Code for this needed here
-            return mult_imp_datasets, convergence_loglik
 
         elif method == "pseudo-Gibbs":
             for i in range(max_iter):
                 z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp) # todo check if this equivalent to the operation in V1
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=x_hat_sigma)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy()
-                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=x_hat_sigma[na_ind])
+                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=np.sqrt(beta)*x_hat_sigma[na_ind])
                 convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])).numpy())
 
                 data_miss_val[na_ind] = x_hat_sample[na_ind]

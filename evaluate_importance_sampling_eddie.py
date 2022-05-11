@@ -10,20 +10,32 @@ from lib.helper_functions import get_scaled_data, evaluate_coverage
 
 if __name__=="__main__":
 
-    model_dir = '/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/output/'
+    try:
+        # If on eddie
+        os.chdir("/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/")
+        model_dir = '/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/output/'
+        encoder_path = model_dir + '20220423-14:22:36_encoder.keras'
+        decoder_path = model_dir +'20220423-14:22:36_decoder.keras'
+        m_datasets = 40
+        max_iter = 1000
+    except FileNotFoundError:
+        # If local
+        model_dir = 'output/epoch_1000_loss_14374.0/'
+        encoder_path = model_dir + 'encoder.keras'
+        decoder_path = model_dir + 'decoder.keras'
+        m_datasets = 3
+        max_iter = 5
     output_dir = model_dir + 'importance_sampling/'
-    encoder_path = model_dir + '20220423-14:22:36_encoder.keras'
-    decoder_path = model_dir +'20220423-14:22:36_decoder.keras'
     model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
-    m_datasets = 40
    
     # impute by importance sampling
     # output will be a list of all m datasets imputed by importance sampling (missing observations only)
-    missing_imputed, ess = model.impute_multiple(data_corrupt=data_missing, max_iter=10000, 
-                                                                m = m_datasets, method="importance sampling2")
+    missing_imputed, ess = model.impute_multiple(data_corrupt=data_missing, max_iter=max_iter, 
+                                                                m = m_datasets, beta = 50, 
+                                                                method="importance sampling2")
     missing_imputed = np.array(missing_imputed)
 
     # export output of m-th dataset
