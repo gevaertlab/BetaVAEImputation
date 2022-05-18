@@ -215,7 +215,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             x_hat_mu, x_hat_log_var = self.decoder(z_mean)
         return x_hat_mu, x_hat_log_var # todo when implementing multiple imputation, will have to sample from N(x_hat_mu, x_hat_log_var)
 
-    def impute_single(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None, return_losses=False):
+    def impute_single(self, data_corrupt, data_complete, beta=1, n_recycles=3, loss='RMSE', scaler=None, return_losses=False):
         assert data_complete.shape == data_corrupt.shape
         losses = []
         convergence_loglik = []
@@ -232,7 +232,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
             # Log likelihood at each iteration
             x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-            X_hat_distribution_na = tfp.distributions.Normal(loc=data_reconstruct[na_ind], scale=x_hat_sigma[na_ind])
+            X_hat_distribution_na = tfp.distributions.Normal(loc=data_reconstruct[na_ind], scale=np.sqrt(beta)*x_hat_sigma[na_ind])
             convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(data_reconstruct[na_ind])).numpy()) 
             
             if scaler is not None:
@@ -460,9 +460,9 @@ if __name__=="__main__":
         decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
     else:
         encoder, decoder = None, None
-    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=50, pretrained_encoder=encoder, pretrained_decoder=decoder)
+    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=12, pretrained_encoder=encoder, pretrained_decoder=decoder)
     vae.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001, clipnorm=1.0))
-    history = vae.fit(x=data_missing, y=data_missing, epochs=1000, batch_size=256) #  callbacks=[tensorboard_callback]
+    history = vae.fit(x=data_missing, y=data_missing, epochs=125, batch_size=256) #  callbacks=[tensorboard_callback]
     decoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_decoder.keras"
     encoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_encoder.keras"
     vae.encoder.save(encoder_save_path)
