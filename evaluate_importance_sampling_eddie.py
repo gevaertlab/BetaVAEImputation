@@ -20,7 +20,7 @@ if __name__=="__main__":
         max_iter = 1000
     except FileNotFoundError:
         # If local
-        model_dir = 'output/epoch_1000_loss_14374.0/'
+        model_dir = 'output/epochs_125_beta12_lr0.00001_loss16913/'
         encoder_path = model_dir + 'encoder.keras'
         decoder_path = model_dir + 'decoder.keras'
         m_datasets = 3
