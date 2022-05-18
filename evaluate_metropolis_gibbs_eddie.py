@@ -18,8 +18,8 @@ if __name__=="__main__":
         # If on eddie
         os.chdir("/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/")
         model_dir = '/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/output/'
-        encoder_path = model_dir + '20220423-14:22:36_encoder.keras'
-        decoder_path = model_dir +'20220423-14:22:36_decoder.keras'
+        encoder_path = model_dir + '20220516-15:46:27_encoder.keras'
+        decoder_path = model_dir +'20220516-15:46:27_decoder.keras'
         m_datasets = 40
         max_iter = 1000
     except FileNotFoundError:
@@ -42,8 +42,8 @@ if __name__=="__main__":
     na_ind = np.where(np.isnan(data_missing[missing_rows]))
    
     # impute by metropolis-within-Gibbs 
-    missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing, max_iter=1000,
-                                                               beta = 50, method="Metropolis-within-Gibbs")
+    missing_imputed, convergence_loglik = model.impute_multiple(data_corrupt=data_missing, max_iter=max_iter,
+                                                               beta = 12, method="Metropolis-within-Gibbs")
 
     # export output of m-th dataset
     data = scaler.inverse_transform(data)

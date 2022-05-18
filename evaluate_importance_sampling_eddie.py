@@ -14,8 +14,8 @@ if __name__=="__main__":
         # If on eddie
         os.chdir("/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/")
         model_dir = '/exports/igmm/eddie/ponting-lab/breeshey/projects/BetaVAEImputation/output/'
-        encoder_path = model_dir + '20220423-14:22:36_encoder.keras'
-        decoder_path = model_dir +'20220423-14:22:36_decoder.keras'
+        encoder_path = model_dir + '20220516-15:46:27_encoder.keras'
+        decoder_path = model_dir +'20220516-15:46:27_decoder.keras'
         m_datasets = 40
         max_iter = 1000
     except FileNotFoundError:
@@ -34,7 +34,7 @@ if __name__=="__main__":
     # impute by importance sampling
     # output will be a list of all m datasets imputed by importance sampling (missing observations only)
     missing_imputed, ess = model.impute_multiple(data_corrupt=data_missing, max_iter=max_iter, 
-                                                                m = m_datasets, beta = 50, 
+                                                                m = m_datasets, beta = 12, 
                                                                 method="importance sampling2")
     missing_imputed = np.array(missing_imputed)
 
