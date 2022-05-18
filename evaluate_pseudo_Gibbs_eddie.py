@@ -33,7 +33,7 @@ if __name__=="__main__":
     output_dir = model_dir + 'pseudo-Gibbs/'
     outname = 'plaus_dataset_' + args.dataset
     print(outname)
-    model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
+    model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path, beta=12)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     np.isnan(data_missing).any(axis=0)
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]

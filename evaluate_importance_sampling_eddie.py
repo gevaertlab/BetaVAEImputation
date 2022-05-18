@@ -26,7 +26,7 @@ if __name__=="__main__":
         m_datasets = 3
         max_iter = 5
     output_dir = model_dir + 'importance_sampling/'
-    model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
+    model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path, beta=12)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]
     na_ind = np.where(np.isnan(data_missing[missing_rows]))

@@ -3,7 +3,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
-from betaVAEv2 import load_model_v2
+from betaVAEv2 import load_model
 from lib.helper_functions import get_scaled_data, evaluate_coverage
 
 
@@ -11,9 +11,7 @@ from lib.helper_functions import get_scaled_data, evaluate_coverage
 if __name__=="__main__":
     model_dir = '/Users/judewells/Documents/dataScienceProgramming/BetaVAEImputation/output/new_trained_model/epoch_1000/'
     output_dir = '/'.join(model_dir.split('/')[:-2]) + '/'
-    encoder_path = model_dir + 'encoder.keras'
-    decoder_path = model_dir +'decoder.keras'
-    model = load_model_v2(encoder_path=encoder_path, decoder_path=decoder_path)
+    model = load_model(model_dir)
     data, data_missing, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
     m_datasets = 5
     missing_rows = np.where(np.isnan(data_missing).any(axis=1))[0]

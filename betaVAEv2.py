@@ -1,4 +1,7 @@
+import copy
 import datetime
+import json
+import os
 import pickle
 import numpy as np
 import random
@@ -13,13 +16,15 @@ from sklearn.metrics import r2_score
 
 from lib.helper_functions import get_scaled_data
 
-network_architecture = \
+model_settings = \
     dict(n_hidden_recog_1=6000,  # 1st layer encoder neurons
-         n_hidden_recog_2=2000,  # 2nd layer encoder neurons
-         n_hidden_gener_1=2000,  # 1st layer decoder neurons
-         n_hidden_gener_2=6000,  # 2nd layer decoder neurons
-         n_z=200,
-         n_input=17175
+            n_hidden_recog_2=2000,  # 2nd layer encoder neurons
+            n_hidden_gener_1=2000,  # 1st layer decoder neurons
+            n_hidden_gener_2=6000,  # 2nd layer decoder neurons
+            n_z=200,
+            n_input=17175,
+            proba_output=True,
+            dropout=False,
          )  # dimensionality of latent space
 
 def calculate_losses(true, preds):
@@ -27,7 +32,6 @@ def calculate_losses(true, preds):
         "RMSE": np.sqrt(((true - preds) ** 2).mean()),
         "MAE": np.abs(true - preds).mean(),
         "r2_score": r2_score(true, preds)
-
     }
 
 class Sampling(tf.keras.layers.Layer):
@@ -41,16 +45,16 @@ class Sampling(tf.keras.layers.Layer):
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 class VariationalAutoencoderV2(tf.keras.Model):
-    def __init__(self, network_architecture=None, proba_output=True, beta=1,
-                 pretrained_encoder=None, pretrained_decoder=None, dropout=False, **kwargs):
+    def __init__(self, model_settings, pretrained_encoder=None, pretrained_decoder=None, **kwargs):
         super(VariationalAutoencoderV2, self).__init__(**kwargs)
-        self.latent_dim = network_architecture['n_z']
-        self.n_input_nodes = network_architecture['n_input']
-        self.network_architecture = network_architecture
-        self.proba_output = proba_output
-        self.beta = beta
-        self.dropout = dropout
-        self.dropout_rate = network_architecture.get('dropout_rate', 0.1)
+        self.latent_dim = model_settings['n_z']
+        self.n_input_nodes = model_settings['n_input']
+        self.model_settings = model_settings
+        self.proba_output = model_settings['proba_output']
+        self.beta = model_settings.get('beta', 1)
+        self.dropout = model_settings['dropout']
+        if self.dropout:
+            self.dropout_rate = model_settings.get('dropout_rate', 0.1)
         if pretrained_encoder is not None:
             self.encoder = pretrained_encoder
         else:
@@ -67,8 +71,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
 
     def create_encoder(self):
-        n_hidden_recog_1 = self.network_architecture['n_hidden_recog_1']
-        n_hidden_recog_2 = self.network_architecture['n_hidden_recog_2']
+        n_hidden_recog_1 = self.model_settings['n_hidden_recog_1']
+        n_hidden_recog_2 = self.model_settings['n_hidden_recog_2']
         encoder_inputs = tf.keras.Input(shape=self.n_input_nodes)
         h1 = tf.keras.layers.Dense(units=n_hidden_recog_1, activation="relu", name='h1')(encoder_inputs)
         n1 = tf.keras.layers.LayerNormalization(name='norm1')(h1)
@@ -92,8 +96,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
             return self.create_basic_decoder()
 
     def create_basic_decoder(self):
-        n_hidden_gener_1 = self.network_architecture['n_hidden_gener_1']
-        n_hidden_gener_2 = self.network_architecture['n_hidden_gener_2']
+        n_hidden_gener_1 = self.model_settings['n_hidden_gener_1']
+        n_hidden_gener_2 = self.model_settings['n_hidden_gener_2']
         latent_inputs = tf.keras.Input(shape=(self.latent_dim,))
         h1 = tf.keras.layers.Dense(n_hidden_gener_1, activation="relu")(latent_inputs)
         n1 = tf.keras.layers.LayerNormalization()(h1)
@@ -105,8 +109,8 @@ class VariationalAutoencoderV2(tf.keras.Model):
         return decoder
 
     def create_probabalistic_decoder(self):
-        n_hidden_gener_1 = self.network_architecture['n_hidden_gener_1']
-        n_hidden_gener_2 = self.network_architecture['n_hidden_gener_2'] # todo: during previous training this value was also n_hidden_gener_1
+        n_hidden_gener_1 = self.model_settings['n_hidden_gener_1']
+        n_hidden_gener_2 = self.model_settings['n_hidden_gener_2'] # todo: during previous training this value was also n_hidden_gener_1
         latent_inputs = tf.keras.Input(shape=(self.latent_dim,))
         h1 = tf.keras.layers.Dense(n_hidden_gener_1, activation="relu", name='h1')(latent_inputs)
         n1 = tf.keras.layers.LayerNormalization()(h1)
@@ -148,7 +152,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
         n_dims = mu.shape[1]
 
         sse = -0.5 * tf.keras.backend.sum(tf.keras.backend.square((ytrue - mu) / sigma),
-                           axis=1)  # divide by sigma instead of sigma squared because sigma is inside the square operation
+                                          axis=1)  # divide by sigma instead of sigma squared because sigma is inside the square operation
         sigma_trace = -tf.keras.backend.sum(logsigma, axis=1)
         log2pi = -0.5 * n_dims * np.log(2 * np.pi)
         log_likelihood = sse + sigma_trace + log2pi
@@ -215,7 +219,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
             x_hat_mu, x_hat_log_var = self.decoder(z_mean)
         return x_hat_mu, x_hat_log_var # todo when implementing multiple imputation, will have to sample from N(x_hat_mu, x_hat_log_var)
 
-    def impute_single(self, data_corrupt, data_complete, beta, n_recycles=3, loss='RMSE', scaler=None, return_losses=False):
+    def impute_single(self, data_corrupt, data_complete, n_recycles=3, loss='RMSE', scaler=None, return_losses=False):
         assert data_complete.shape == data_corrupt.shape
         losses = []
         convergence_loglik = []
@@ -232,9 +236,9 @@ class VariationalAutoencoderV2(tf.keras.Model):
 
             # Log likelihood at each iteration
             x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-            X_hat_distribution_na = tfp.distributions.Normal(loc=data_reconstruct[na_ind], scale=np.sqrt(beta)*x_hat_sigma[na_ind])
-            convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(data_reconstruct[na_ind])).numpy()) 
-            
+            X_hat_distribution_na = tfp.distributions.Normal(loc=data_reconstruct[na_ind], scale=np.sqrt(self.beta)*x_hat_sigma[na_ind])
+            convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(data_reconstruct[na_ind])).numpy())
+
             if scaler is not None:
                 predictions = np.copy(scaler.inverse_transform(data_reconstruct)[na_ind])
                 target_values = np.copy(scaler.inverse_transform(true_values_for_missing)[na_ind])
@@ -254,7 +258,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
         else:
             return data_miss_val, convergence_loglik
 
-    def impute_multiple(self, data_corrupt, beta, max_iter=10, m = 1, method = 'pseudo-Gibbs'):
+    def impute_multiple(self, data_corrupt, max_iter=10, m = 1, method = 'pseudo-Gibbs'):
         missing_row_ind = np.where(np.isnan(data_corrupt).any(axis=1))
         data_miss_val = data_corrupt[missing_row_ind[0],:]
         na_ind = np.where(np.isnan(data_miss_val))
@@ -271,9 +275,9 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(self.beta)*x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy()
-                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=np.sqrt(beta)*x_hat_sigma[na_ind])
+                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=np.sqrt(self.beta)*x_hat_sigma[na_ind])
                 convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind]).numpy()))
 
                 if i == 0:
@@ -285,7 +289,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 else:
                     # Define distributions
                     z_Distribution = tfp.distributions.Normal(loc=z_mean, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
-                    X_hat_distr_s_minus_1 = tfp.distributions.Normal(loc=x_hat_mean_s_minus_1, scale=np.sqrt(beta)*tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
+                    X_hat_distr_s_minus_1 = tfp.distributions.Normal(loc=x_hat_mean_s_minus_1, scale=np.sqrt(self.beta)*tf.sqrt(tf.exp(x_hat_log_sigma_sq_s_minus_1)))
 
                     # Calculate log likelihood for previous and new sample to calculate acceptance probability with
                     log_q_z_star = tf.reduce_sum(z_Distribution.log_prob(z_samp), axis=1).numpy()
@@ -322,7 +326,7 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 z_l = z_Distribution.sample().numpy()
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_l)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(self.beta)*x_hat_sigma)
                 log_p_Yc_z = tf.reduce_sum(X_hat_distribution.log_prob(data_miss_val).numpy() * probability_mask, axis=1).numpy()
                 log_p_z = tf.reduce_sum(z_prior.log_prob(z_l), axis=1).numpy()
                 log_q_z_Y = tf.reduce_sum(z_Distribution.log_prob(z_l), axis=1).numpy()
@@ -347,20 +351,20 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 samp_m_obs = np.array(random.choices(population = z_sample_l_byobs[s], weights=prob_weights_s, k=m))
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(samp_m_obs)
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma) # update variance of Xhat wrt beta coefficient
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(self.beta)*x_hat_sigma) # update variance of Xhat wrt beta coefficient
                 x_hat_sample = X_hat_distribution.sample().numpy()
                 sampled_datasets.append(x_hat_sample)
                 eff_samp_size = 1/np.sum(np.square(prob_weights_s))
                 print('ESS:', eff_samp_size)
                 ess.append(eff_samp_size)
-            
+
             # this will give us m plausible datasets of size n_samp x n_features
             sampled_datasets_t = np.transpose(np.array(sampled_datasets), axes = (1,0,2))
 
             mult_imp_datasets = []
             for j in range(m):
                 data_miss_val[na_ind] = sampled_datasets_t[j][na_ind]
-                mult_imp_datasets.append(np.copy(data_miss_val)) 
+                mult_imp_datasets.append(np.copy(data_miss_val))
 
             return mult_imp_datasets, ess
 
@@ -370,9 +374,9 @@ class VariationalAutoencoderV2(tf.keras.Model):
                 z_mean, z_log_sigma_sq, z_samp = self.encoder.predict(data_miss_val)
                 x_hat_mean, x_hat_log_sigma_sq = self.decoder.predict(z_samp) # todo check if this equivalent to the operation in V1
                 x_hat_sigma = np.exp(0.5 * x_hat_log_sigma_sq)
-                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(beta)*x_hat_sigma)
+                X_hat_distribution = tfp.distributions.Normal(loc=x_hat_mean, scale=np.sqrt(self.beta)*x_hat_sigma)
                 x_hat_sample = X_hat_distribution.sample().numpy()
-                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=np.sqrt(beta)*x_hat_sigma[na_ind])
+                X_hat_distribution_na = tfp.distributions.Normal(loc=x_hat_mean[na_ind], scale=np.sqrt(self.beta)*x_hat_sigma[na_ind])
                 convergence_loglik.append(tf.reduce_sum(X_hat_distribution_na.log_prob(x_hat_sample[na_ind])).numpy())
 
                 data_miss_val[na_ind] = x_hat_sample[na_ind]
@@ -382,19 +386,26 @@ class VariationalAutoencoderV2(tf.keras.Model):
             print("Please choose a convergence method from either pseudo-Gibbs, Metropolis-within-Gibbs or importance sampling")
 
 
-def load_model_v2(encoder_path='output/20220405-14:37:31_encoder.keras',
-                  decoder_path='output/20220405-14:37:31_decoder.keras',
-                  network_architecture = network_architecture, load_pretrained=True, beta=1, dropout=False,
-                  **kwargs): # todo put dropout in network architecture
+    def save(self, save_dir):
+        os.mkdir(save_dir)
+        model_settings_path = os.path.join(save_dir, 'model_settings.json')
+        with open(model_settings_path, 'w') as f:
+            json.dump(model_settings, f)
+        encoder_path = os.path.join(save_dir, 'encoder.keras')
+        decoder_path = os.path.join(save_dir, 'decoder.keras')
+        self.encoder.save(encoder_path)
+        self.decoder.save(decoder_path)
 
-    if load_pretrained:
-        encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
-        decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
-    else:
-        encoder = None
-        decoder = None
-    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=beta, pretrained_encoder=encoder,
-                                   pretrained_decoder=decoder, dropout=dropout, **kwargs)
+def load_model(model_dir=None):
+    encoder_path = os.path.join(model_dir, 'encoder.keras')
+    decoder_path = os.path.join(model_dir, 'decoder.keras')
+    settings_path = os.path.join(model_dir, 'model_settings.json')
+    encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
+    decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
+    with open(settings_path, 'r') as f:
+        model_settings = json.load(f)
+    vae = VariationalAutoencoderV2(model_settings=model_settings, pretrained_encoder=encoder,
+                                   pretrained_decoder=decoder)
     return vae
 
 if __name__=="__main__":
@@ -405,23 +416,18 @@ if __name__=="__main__":
         print(logical_devices)
     except:
         pass
+    model_save_load_folder = 'output/model1'
+    load_pretrained = True
     data, data_missing = get_scaled_data()
     n_row = data.shape[1]
-    network_architecture['n_input']=n_row  # data input size
-    load_pretrained = False
+    model_settings['n_input']=n_row  # data input size
     if load_pretrained:
-        encoder_path =  'output/20220405-14:37:31_encoder.keras'
-        decoder_path = 'output/20220405-14:37:31_decoder.keras'
-        encoder = tf.keras.models.load_model(encoder_path, custom_objects={'Sampling': Sampling})
-        decoder = tf.keras.models.load_model(decoder_path, custom_objects={'Sampling': Sampling})
+        vae = load_model(model_dir=model_save_load_folder)
     else:
-        encoder, decoder = None, None
-    vae = VariationalAutoencoderV2(network_architecture=network_architecture, beta=12, pretrained_encoder=encoder, pretrained_decoder=decoder)
+        model_settings['beta'] = 12
+        vae = VariationalAutoencoderV2(model_settings=model_settings)
     vae.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001, clipnorm=1.0))
-    history = vae.fit(x=data_missing, y=data_missing, epochs=125, batch_size=256) #  callbacks=[tensorboard_callback]
-    decoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_decoder.keras"
-    encoder_save_path = f"output/{datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S')}_encoder.keras"
-    vae.encoder.save(encoder_save_path)
-    vae.decoder.save(decoder_save_path)
-    with open('output/train_history_dict', 'wb') as file_handle:
+    history = vae.fit(x=data_missing, y=data_missing, epochs=2, batch_size=256) #  callbacks=[tensorboard_callback]
+    vae.save(model_save_load_folder)
+    with open(os.path.join(model_save_load_folder,'train_history.pickle'), 'wb') as file_handle:
         pickle.dump(history.history, file_handle)
