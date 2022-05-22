@@ -34,12 +34,10 @@ if __name__=="__main__":
     args = sys.argv
     d_index = int(args[1]) -1
     data, data_missing_nan, scaler = get_scaled_data(put_nans_back=True, return_scaler=True)
-    validation_input, validation_target, val_na_ind = get_additional_masked_data(data_missing_nan)
-    data_complete = np.copy(data)
-    missing_row_ind = np.where(np.isnan(data_missing_nan).any(axis=1))[0]
-    data_w_missingness = data_missing_nan[missing_row_ind]
-    na_ind = np.where(np.isnan(data_w_missingness))
-    data_missing = np.nan_to_num(data_missing_nan)
+    validation_w_nan, validation_complete, val_na_ind = get_additional_masked_data(data_missing_nan)
+    other_missing_row_ind = np.where(np.isnan(data_missing_nan).any(axis=1))[0]
+    training_input = np.append(validation_w_nan, data_missing_nan[other_missing_row_ind], axis=0)
+    training_input = np.nan_to_num(training_input)
     n_col = data.shape[1]
     beta_rates = [0.1, 0.5, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 8, 12, 16, 24, 32, 50, 64, 100, 150]
     beta = beta_rates[d_index]
@@ -65,19 +63,15 @@ if __name__=="__main__":
     epochs = epoch_granularity[beta]
     rounds = int(n_epochs_dict[beta] / epochs) + 1
     for i in range(rounds):
-        full_w_zeros = np.copy(data_missing) # 667 obs
-        full_complete = np.copy(data_complete) #667 obs
-        missing_w_nans = np.copy(data_w_missingness)
-        missing_complete = np.copy(data_complete[missing_row_ind])
-        history = model.fit(x=full_w_zeros, y=full_w_zeros, epochs=epochs, batch_size=256)
+        training_w_zeros = np.copy(training_input) # 667 obs
+        validation_w_nan_cp = np.copy(validation_w_nan)
+        history = model.fit(x=training_w_zeros, y=training_w_zeros, epochs=epochs, batch_size=256)
         loss = int(round(history.history['loss'][-1] , 0))#  callbacks=[tensorboard_callback]
         if loss < 1000:
             break
-        results = evaluate_model(model, missing_w_nans, missing_complete, na_ind, scaler)
-        validation_results = evaluate_model(model, validation_input, validation_target, val_na_ind, scaler)
+        results = evaluate_model(model, validation_w_nan_cp, validation_complete, val_na_ind, scaler)
         completed_epochs = (i + 1) * epochs
         save_results(results, completed_epochs, beta, results_path='beta_analysis3.csv')
         remove_lock()
-        save_results(validation_results, completed_epochs, beta, results_path='val_beta_analysis3.csv')
-        remove_lock()
+
 
