@@ -40,29 +40,29 @@ if __name__=="__main__":
     na_ind = np.where(np.isnan(data_w_missingness))
     data_missing = np.nan_to_num(data_missing_nan)
     n_col = data.shape[1]
-    beta_rates = [0.1, 0.5, 1, 2, 4, 6, 8, 12, 24, 32, 50, 64, 100, 150]
-    beta = beta_rates[d_index]
-    dropout = False
+    beta_rates = [0.1, 0.5, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 8, 12, 16, 24, 32, 50, 64, 100, 150]
+    epoch_granularity = {0.1: 15, 0.5: 20, 1: 20, 1.25: 20, 1.5: 25, 1.75: 25, 2: 25, 2.5: 30, 3: 30, 4: 30, 5: 30,
+                         6: 30, 8: 30, 12: 30, 16: 30, 24: 30, 32: 35, 50: 40, 64: 50, 100: 100, 150: 100}
 
-    network_architecture = \
+    n_epochs_dict = {0.1: 300, 0.5: 300, 1: 300, 1.25: 300, 1.5: 350, 1.75: 350, 2: 400, 2.5: 400, 3: 400, 4: 400,
+                     5: 450, 6: 500, 8: 500, 12: 600, 16: 650, 24: 700, 32: 900, 50: 1100, 64: 1200, 100: 1400,
+                     150: 1600}
+    beta = beta_rates[d_index]
+    model_settings = \
         dict(n_hidden_recog_1=6000,  # 1st layer encoder neurons
              n_hidden_recog_2=2000,  # 2nd layer encoder neurons
              n_hidden_gener_1=2000,  # 1st layer decoder neurons
              n_hidden_gener_2=6000,  # 2nd layer decoder neurons
              n_input=n_col,  # data input size
              n_z=200, # dimensionality of latent space
-             dropout_rate=0,
              )
-    encoder, decoder = None, None
-    beta = beta
+    model_settings['beta'] = beta
     lr = 0.00001
-    model = VariationalAutoencoderV2(network_architecture=network_architecture, beta=beta, dropout=dropout,
-                                   pretrained_encoder=encoder, pretrained_decoder=decoder)
+    model = VariationalAutoencoderV2(model_settings=model_settings)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0))
     # model_savepath = f'output/dropout_rate{dropout_rate}_beta{beta}_lr{lr}/'
     # os.makedirs(model_savepath, exist_ok=True)
-    epochs = 125
-    n_epochs_dict = {0.1: 400, 0.5:400, 1:400, 2:500, 4:500, 6:600, 8:600, 12:700, 24:1000, 32:1200, 50:1400, 64:1600, 100:2000, 150:2500, 200:3000, 300:6000}
+    epochs = epoch_granularity[beta]
     rounds = int(n_epochs_dict[beta] / epochs) + 1
     for i in range(rounds):
         full_w_zeros = np.copy(data_missing) # 667 obs

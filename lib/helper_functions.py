@@ -148,8 +148,8 @@ class DataMissingMaker:
         random_rows = np.random.choice(range(len(self.data)), self.n_rows_to_null, replace=False)
         null_col_indexes = [self.get_random_col_selection() for _ in range(self.n_rows_to_null)]
         null_row_indexes = [np.repeat(row, repeats=len(null_col_indexes[i])) for i, row in enumerate(random_rows)]
-        null_col_indexes = np.array([inner[j] for inner in null_col_indexes for j in range(len(inner))])
-        null_row_indexes = np.array([inner[j] for inner in null_row_indexes for j in range(len(inner))])
+        null_col_indexes = np.array([inner[j] for inner in null_col_indexes for j in range(len(inner))]) # flatten the nested arrays
+        null_row_indexes = np.array([inner[j] for inner in null_row_indexes for j in range(len(inner))]) # flatten the nested arrays
         new_masked_x = np.copy(self.data)
         new_masked_x[null_row_indexes, null_col_indexes] = np.nan
         return new_masked_x

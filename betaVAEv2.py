@@ -47,12 +47,12 @@ class Sampling(tf.keras.layers.Layer):
 class VariationalAutoencoderV2(tf.keras.Model):
     def __init__(self, model_settings, pretrained_encoder=None, pretrained_decoder=None, **kwargs):
         super(VariationalAutoencoderV2, self).__init__(**kwargs)
+        self.model_settings = model_settings
         self.latent_dim = model_settings['n_z']
         self.n_input_nodes = model_settings['n_input']
-        self.model_settings = model_settings
-        self.proba_output = model_settings['proba_output']
+        self.proba_output = model_settings.get('proba_output', True)
         self.beta = model_settings.get('beta', 1)
-        self.dropout = model_settings['dropout']
+        self.dropout = model_settings.get('dropout', False)
         if self.dropout:
             self.dropout_rate = model_settings.get('dropout_rate', 0.1)
         if pretrained_encoder is not None:
