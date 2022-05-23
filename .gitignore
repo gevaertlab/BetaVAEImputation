@@ -14,3 +14,4 @@ lib/__pycache__/*
 *.png
 *.xlsx
 ucl_cluster_logs/
+.ipynb_checkpoints/
