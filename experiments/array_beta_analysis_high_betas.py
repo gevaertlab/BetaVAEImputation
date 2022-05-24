@@ -67,8 +67,6 @@ if __name__=="__main__":
         validation_w_nan_cp = np.copy(validation_w_nan)
         history = model.fit(x=training_w_zeros, y=training_w_zeros, epochs=epochs, batch_size=256)
         loss = int(round(history.history['loss'][-1] , 0))#  callbacks=[tensorboard_callback]
-        if loss < 1000:
-            break
         results = evaluate_model(model, validation_w_nan_cp, validation_complete, val_na_ind, scaler)
         completed_epochs = (i + 1) * epochs
         save_results(results, completed_epochs, beta, results_path='beta_analysis4.csv')
